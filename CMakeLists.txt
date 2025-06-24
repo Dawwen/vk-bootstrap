@@ -1,0 +1,50 @@
+cmake_minimum_required(VERSION 4.0)
+
+
+# This is your project statement. You should always list languages;
+# Listing the version is nice here since it sets lots of useful variables
+project(
+  ModernCMakeExample
+  VERSION 1.0
+  LANGUAGES CXX)
+
+
+# set (CMAKE_CXX_STANDARD 20)
+
+# Adding something we can run - Output name matches target name
+add_executable(MyExample main.cpp)
+
+include(FetchContent)
+
+# define a function for adding git dependencies
+function(include_dependency libName gitURL gitTag)
+    # setup the declare
+    FetchContent_Declare(${libName}
+            GIT_REPOSITORY ${gitURL}
+            GIT_TAG        ${gitTag}
+            GIT_SHALLOW    TRUE
+            GIT_PROGRESS   TRUE
+    )
+
+    FetchContent_MakeAvailable(${libName})
+endfunction()
+
+# add SDL3 support
+find_package(SDL3 QUIET)
+if (NOT SDL3_FOUND)
+    message(STATUS "Getting SDL3 from Github")
+    include_dependency(SDL3 https://github.com/libsdl-org/SDL.git release-3.2.0)
+else()
+    message(STATUS "Using local SDL3")
+endif()
+
+include_dependency(fetch_vk_bootstrap https://github.com/charles-lunarg/vk-bootstrap b934b6c76cf7c3b7bef76c0ddd43a0996f8b9f92)
+
+include_dependency(fetch_vma https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator 6ec8481c8a13db586d7b3ba58f4eb9bbf017edf0)
+
+find_package(Vulkan REQUIRED)
+
+target_link_libraries(MyExample vk-bootstrap::vk-bootstrap SDL3 Vulkan::Vulkan GPUOpen::VulkanMemoryAllocator)
+# target_link_libraries(MyExample vk-bootstrap::vk-bootstrap SDL3 GPUOpen::VulkanMemoryAllocator)
+
+
