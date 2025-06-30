@@ -20,12 +20,16 @@
 #include <VkBootstrap.h>
 
 #define VMA_IMPLEMENTATION
+#define VMA_VULKAN_VERSION 1002000 // Vulkan 1.2
 #define VMA_STATIC_VULKAN_FUNCTIONS 0
-#define VMA_DYNAMIC_VULKAN_FUNCTIONS 1
+#define VMA_DYNAMIC_VULKAN_FUNCTIONRenderDataS 1
 #include <vk_mem_alloc.h>
 
 #define EXAMPLE_BUILD_DIRECTORY "../"
 // #include "example_config.h"
+
+#define SCREEN_WIDTH 800
+#define SCREEN_HEIGHT 600
 
 const int MAX_FRAMES_IN_FLIGHT = 3;
 
@@ -144,36 +148,43 @@ void copyBuffer(Init& init, RenderData& data, VkBuffer srcBuffer, VkBuffer dstBu
 
 void createVertexBuffer(Init& init, RenderData& data) {
 
+
     size_t buffer_size = sizeof(vertices[0]) * vertices.size();
 
-    VkBufferCreateInfo buffer_create_info {};
-    buffer_create_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-    buffer_create_info.size = sizeof(vertices[0]) * vertices.size();
-    buffer_create_info.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
-    buffer_create_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    VkBufferCreateInfo buffer_create_info = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
+    buffer_create_info.size = buffer_size;
+    buffer_create_info.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;//VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
 
-    VmaAllocationCreateInfo staging_allocation_create_info;
-    staging_allocation_create_info.usage = VMA_MEMORY_USAGE_AUTO; // VMA_MEMORY_USAGE_CPU_TO_GPU;
+    VmaAllocationCreateInfo staging_allocation_create_info = {};
+    staging_allocation_create_info.usage = VMA_MEMORY_USAGE_AUTO;
     staging_allocation_create_info.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT;
-    staging_allocation_create_info.priority = 1.0f;
-
 
     VkBuffer staging_buffer;
     VmaAllocation staging_allocation;
     VmaAllocationInfo allocation_info;
-    std::cout << "Buffer 1" << std::endl;
+
+    std::cout << "Buffer 1 of size " << buffer_size << std::endl;
+
     // Staging buffer
-    vmaCreateBuffer(allocator, &buffer_create_info, &staging_allocation_create_info, &staging_buffer, &staging_allocation, &allocation_info);
+    auto result = vmaCreateBuffer(allocator, &buffer_create_info, &staging_allocation_create_info, &staging_buffer, &staging_allocation, &allocation_info);
+    if (result != VK_SUCCESS)
+    {
+        std::cout << "FAILED" << std::endl;
+    }
+    
+    // vmaCopyMemoryToAllocation(allocator, vertices.data(), staging_allocation, 0, buffer_size);
     memcpy(allocation_info.pMappedData, vertices.data(), buffer_size);
     
-    VmaAllocationCreateInfo allocation_create_info;
-    allocation_create_info.usage = VMA_MEMORY_USAGE_GPU_ONLY;
-    allocation_create_info.flags = VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT;
-    allocation_create_info.priority = 1.0f;
+
+    buffer_create_info.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+
+    VmaAllocationCreateInfo vertex_allocation_create_info = {};
+    vertex_allocation_create_info.usage = VMA_MEMORY_USAGE_AUTO;
+    vertex_allocation_create_info.flags  = 0;
 
     std::cout << "Buffer 2" << std::endl;
 
-    vmaCreateBuffer(allocator, &buffer_create_info, &allocation_create_info, &init.vertex_buffer, &init.vertex_buffer_allocation, nullptr);
+    vmaCreateBuffer(allocator, &buffer_create_info, &vertex_allocation_create_info, &init.vertex_buffer, &init.vertex_buffer_allocation, nullptr);
     
     copyBuffer(init, data, staging_buffer, init.vertex_buffer, buffer_size);
 
@@ -189,7 +200,7 @@ SDL_Window* create_window_glfw(const char* window_name = "", bool resize = true)
         // return SDL_APP_FAILURE;
     }
 
-    SDL_Window* window = SDL_CreateWindow("examples/renderer/clear", 640, 480, SDL_WINDOW_VULKAN);
+    SDL_Window* window = SDL_CreateWindow("examples/renderer/clear", SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_VULKAN);
     if (window == nullptr)
     {
         SDL_Log("Couldn't create Vulkan window: %s", SDL_GetError());
@@ -227,7 +238,7 @@ int device_initialization(Init& init) {
     init.window = create_window_glfw("Vulkan Triangle", true);
 
     vkb::InstanceBuilder instance_builder;
-    auto instance_ret = instance_builder.use_default_debug_messenger().request_validation_layers().build();
+    auto instance_ret = instance_builder.require_api_version(1,3,0).request_validation_layers().build();
     if (!instance_ret) {
         std::cout << instance_ret.error().message() << "\n";
         return -1;
@@ -262,7 +273,7 @@ int device_initialization(Init& init) {
 int create_swapchain(Init& init) {
 
     vkb::SwapchainBuilder swapchain_builder{ init.device };
-    auto swap_ret = swapchain_builder.set_old_swapchain(init.swapchain).build();
+    auto swap_ret = swapchain_builder.set_desired_extent(SCREEN_WIDTH, SCREEN_HEIGHT).set_old_swapchain(init.swapchain).build();
     if (!swap_ret) {
         std::cout << swap_ret.error().message() << " " << swap_ret.vk_result() << "\n";
         return -1;
@@ -585,6 +596,8 @@ int create_command_buffers(Init& init, RenderData& data) {
 
         init.disp.cmdBindPipeline(data.command_buffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, data.graphics_pipeline);
 
+        VkDeviceSize offset = 0;
+        init.disp.cmdBindVertexBuffers(data.command_buffers[i], 0, 1, &init.vertex_buffer, &offset);
         init.disp.cmdDraw(data.command_buffers[i], 3, 1, 0, 0);
 
         init.disp.cmdEndRenderPass(data.command_buffers[i]);
@@ -726,6 +739,8 @@ void cleanup(Init& init, RenderData& data) {
 
     init.swapchain.destroy_image_views(data.swapchain_image_views);
 
+    vmaDestroyBuffer(allocator, init.vertex_buffer, init.vertex_buffer_allocation);
+
     vkb::destroy_swapchain(init.swapchain);
     vkb::destroy_device(init.device);
     vkb::destroy_surface(init.instance, init.surface);
@@ -755,20 +770,7 @@ int main() {
     std::cout << "Creating allocator" << std::endl;
     vmaCreateAllocator(&allocatorCreateInfo, &allocator);
     std::cout << "Created allocator" << std::endl;
-
-
-    VkBufferCreateInfo bufferInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
-    bufferInfo.size = 65536;
-    bufferInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
     
-    VmaAllocationCreateInfo allocInfo = {};
-    allocInfo.usage = VMA_MEMORY_USAGE_AUTO;
-    
-    VkBuffer buffer;
-    VmaAllocation allocation;
-    std::cout << "Creating buffer" << std::endl;
-    vmaCreateBuffer(allocator, &bufferInfo, &allocInfo, &buffer, &allocation, nullptr);
-    std::cout << "Created buffer" << std::endl;
 
     if (0 != create_swapchain(init)) return -1;
     if (0 != get_queues(init, render_data)) return -1;
@@ -777,7 +779,7 @@ int main() {
     if (0 != create_framebuffers(init, render_data)) return -1;
     if (0 != create_command_pool(init, render_data)) return -1;
     
-    // createVertexBuffer(init, render_data);
+    createVertexBuffer(init, render_data);
     if (0 != create_command_buffers(init, render_data)) return -1;
     if (0 != create_sync_objects(init, render_data)) return -1;
 
@@ -796,7 +798,7 @@ int main() {
 
     init.disp.deviceWaitIdle();
 
-    vmaDestroyBuffer(allocator,buffer,allocation);
+    // vmaDestroyBuffer(allocator,buffer,allocation);
     // vmaDestroyAllocator(allocator);
     cleanup(init, render_data);
     return 0;
