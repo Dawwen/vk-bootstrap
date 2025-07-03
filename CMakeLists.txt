@@ -44,7 +44,6 @@ include_dependency(fetch_vma https://github.com/GPUOpen-LibrariesAndSDKs/VulkanM
 
 find_package(Vulkan REQUIRED)
 
-target_link_libraries(MyExample vk-bootstrap::vk-bootstrap SDL3 Vulkan::Vulkan GPUOpen::VulkanMemoryAllocator)
-# target_link_libraries(MyExample vk-bootstrap::vk-bootstrap SDL3 GPUOpen::VulkanMemoryAllocator)
+target_link_libraries(MyExample vk-bootstrap::vk-bootstrap SDL3::SDL3 Vulkan::Vulkan GPUOpen::VulkanMemoryAllocator)
 
 
