@@ -742,9 +742,9 @@ void cleanup(Init& init, RenderData& data) {
     vmaDestroyBuffer(allocator, init.vertex_buffer, init.vertex_buffer_allocation);
 
     vkb::destroy_swapchain(init.swapchain);
+    vmaDestroyAllocator(allocator);
     vkb::destroy_device(init.device);
     vkb::destroy_surface(init.instance, init.surface);
-    vmaDestroyAllocator(allocator);
     vkb::destroy_instance(init.instance);
     destroy_window_glfw(init.window);
 }
