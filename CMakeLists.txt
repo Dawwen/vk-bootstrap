@@ -11,8 +11,19 @@ project(
 
 # set (CMAKE_CXX_STANDARD 20)
 
+include_directories(include thirdparty/imgui)
+
 # Adding something we can run - Output name matches target name
-add_executable(MyExample main.cpp)
+add_executable(MyExample
+                    # IMGUI
+                    thirdparty/imgui/imgui.cpp
+                    thirdparty/imgui/imgui_widgets.cpp
+                    thirdparty/imgui/imgui_tables.cpp
+                    thirdparty/imgui/imgui_draw.cpp
+                    thirdparty/imgui/imgui_demo.cpp
+                    thirdparty/imgui/backends/imgui_impl_sdl3.cpp
+                    thirdparty/imgui/backends/imgui_impl_vulkan.cpp
+                    main.cpp)
 
 include(FetchContent)
 

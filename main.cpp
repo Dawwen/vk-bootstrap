@@ -9,6 +9,7 @@
 // #include <vulkan/vulkan_core.h>
 // #include <GLFW/glfw3.h>
 
+#define SHADER_FOLDER "../shaders/"
 
 #define SDL_MAIN_USE_CALLBACKS 1  /* use the callbacks instead of main() */
 #include <SDL3/SDL.h>
@@ -377,8 +378,8 @@ VkShaderModule createShaderModule(Init& init, const std::vector<char>& code) {
 }
 
 int create_graphics_pipeline(Init& init, RenderData& data) {
-    auto vert_code = readFile(std::string(EXAMPLE_BUILD_DIRECTORY) + "/triangle.vert.spv");
-    auto frag_code = readFile(std::string(EXAMPLE_BUILD_DIRECTORY) + "/triangle.frag.spv");
+    auto vert_code = readFile(std::string(SHADER_FOLDER) + "/triangle.vert.spv");
+    auto frag_code = readFile(std::string(SHADER_FOLDER) + "/triangle.frag.spv");
 
     VkShaderModule vert_module = createShaderModule(init, vert_code);
     VkShaderModule frag_module = createShaderModule(init, frag_code);
