@@ -6,9 +6,6 @@
 #include <string>
 #include <array>
 
-// #include <vulkan/vulkan_core.h>
-// #include <GLFW/glfw3.h>
-
 #define SHADER_FOLDER "../shaders/"
 
 #define SDL_MAIN_USE_CALLBACKS 1  /* use the callbacks instead of main() */
@@ -16,7 +13,6 @@
 #include <SDL3/SDL_vulkan.h>
 
 #include <glm/glm.hpp>
-// #include "vk_mem_alloc.h"
 
 #include <VkBootstrap.h>
 
@@ -25,9 +21,6 @@
 #define VMA_STATIC_VULKAN_FUNCTIONS 0
 #define VMA_DYNAMIC_VULKAN_FUNCTIONRenderDataS 1
 #include <vk_mem_alloc.h>
-
-#define EXAMPLE_BUILD_DIRECTORY "../"
-// #include "example_config.h"
 
 #define SCREEN_WIDTH 800
 #define SCREEN_HEIGHT 600
@@ -154,16 +147,6 @@ struct Vertex {
         return attributeDescriptions;
     }
 };
-
-// const std::vector<Vertex> vertices = {
-//     {{0.0f, -0.5f}, {1.0f, 0.0f, 0.0f}},
-//     {{0.5f, 0.5f}, {0.0f, 1.0f, 0.0f}},
-//     {{-0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}}
-// };
-
-// const std::vector<uint16_t> indices = {
-//     0, 1, 2
-// };
 
 const std::vector<Vertex> vertices = {
     {{-0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}},
