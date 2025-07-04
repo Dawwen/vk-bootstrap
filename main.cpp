@@ -34,6 +34,21 @@
 
 const int MAX_FRAMES_IN_FLIGHT = 3;
 
+#include "test.h"
+
+#include "imgui.h"
+#include "backends/imgui_impl_sdl3.h"
+#include "backends/imgui_impl_vulkan.h"
+
+static void check_vk_result(VkResult err)
+{
+    if (err == 0)
+        return;
+    fprintf(stderr, "[vulkan] Error: VkResult = %d\n", err);
+    if (err < 0)
+        abort();
+}
+
 //VMA
 VmaVulkanFunctions vulkanFunctions = {};
 
@@ -78,6 +93,39 @@ struct RenderData {
 };
 
 
+
+void initImGUI(Init& init, RenderData& data)
+{
+    // Setup Dear ImGui context
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    ImGuiIO& io = ImGui::GetIO();
+    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
+    io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
+    // io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;         // IF using Docking Branch
+
+    // Setup Platform/Renderer backends
+    ImGui_ImplSDL3_InitForVulkan(init.window);
+    ImGui_ImplVulkan_InitInfo init_info = {};
+    init_info.Instance = init.instance;
+    init_info.PhysicalDevice = init.device.physical_device;
+    init_info.Device = init.device.device;
+    init_info.QueueFamily = ImGui_ImplVulkanH_SelectQueueFamilyIndex(init_info.PhysicalDevice); //TODO be sure
+    init_info.Queue = data.graphics_queue;
+    // init_info.PipelineCache = YOUR_PIPELINE_CACHE;
+    // init_info.DescriptorPool = YOUR_DESCRIPTOR_POOL;
+    init_info.Subpass = 0;
+    init_info.MinImageCount = 2;
+    init_info.ImageCount = 2;
+    init_info.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
+    // init_info.Allocator = YOUR_ALLOCATOR;
+    init_info.CheckVkResultFn = check_vk_result;
+    ImGui_ImplVulkan_Init(&init_info);
+    // (this gets a bit more complicated, see example app for full reference)
+    // ImGui_ImplVulkan_CreateFontsTexture(data.command_pool);
+    // (your code submit a queue)
+    // ImGui_ImplVulkan_DestroyFontUploadObjects();
+}
 
 struct Vertex {
     glm::vec2 pos;
@@ -658,6 +706,11 @@ int recreate_swapchain(Init& init, RenderData& data) {
 int draw_frame(Init& init, RenderData& data) {
     init.disp.waitForFences(1, &data.in_flight_fences[data.current_frame], VK_TRUE, UINT64_MAX);
 
+    ImGui_ImplVulkan_NewFrame();
+    ImGui_ImplSDL3_NewFrame();
+    ImGui::NewFrame();
+    ImGui::ShowDemoWindow(); // Show demo window! :)
+
     uint32_t image_index = 0;
     VkResult result = init.disp.acquireNextImageKHR(
         init.swapchain, UINT64_MAX, data.available_semaphores[data.current_frame], VK_NULL_HANDLE, &image_index);
@@ -717,6 +770,9 @@ int draw_frame(Init& init, RenderData& data) {
         return -1;
     }
 
+    ImGui::Render();
+    ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), data.command_buffers[data.current_frame]);
+
     data.current_frame = (data.current_frame + 1) % MAX_FRAMES_IN_FLIGHT;
     return 0;
 }
@@ -741,6 +797,10 @@ void cleanup(Init& init, RenderData& data) {
     init.swapchain.destroy_image_views(data.swapchain_image_views);
 
     vmaDestroyBuffer(allocator, init.vertex_buffer, init.vertex_buffer_allocation);
+
+    ImGui_ImplVulkan_Shutdown();
+    ImGui_ImplSDL3_Shutdown();
+    ImGui::DestroyContext();
 
     vkb::destroy_swapchain(init.swapchain);
     vmaDestroyAllocator(allocator);
@@ -781,6 +841,7 @@ int main() {
     if (0 != create_command_pool(init, render_data)) return -1;
     
     createVertexBuffer(init, render_data);
+    initImGUI(init, render_data);
     if (0 != create_command_buffers(init, render_data)) return -1;
     if (0 != create_sync_objects(init, render_data)) return -1;
 
