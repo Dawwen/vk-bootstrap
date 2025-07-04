@@ -155,11 +155,27 @@ struct Vertex {
     }
 };
 
+// const std::vector<Vertex> vertices = {
+//     {{0.0f, -0.5f}, {1.0f, 0.0f, 0.0f}},
+//     {{0.5f, 0.5f}, {0.0f, 1.0f, 0.0f}},
+//     {{-0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}}
+// };
+
+// const std::vector<uint16_t> indices = {
+//     0, 1, 2
+// };
+
 const std::vector<Vertex> vertices = {
-    {{0.0f, -0.5f}, {1.0f, 0.0f, 0.0f}},
-    {{0.5f, 0.5f}, {0.0f, 1.0f, 0.0f}},
-    {{-0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}}
+    {{-0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}},
+    {{0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}},
+    {{0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}},
+    {{-0.5f, 0.5f}, {1.0f, 1.0f, 1.0f}}
 };
+
+const std::vector<uint16_t> indices = {
+    0, 1, 2, 2, 3, 0
+};
+
 
 void copyBuffer(Init& init, RenderData& data, VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size)
 {
@@ -240,6 +256,46 @@ void createVertexBuffer(Init& init, RenderData& data) {
     vmaDestroyBuffer(allocator, staging_buffer, staging_allocation);
 }
 
+void createIndicesBuffer(Init& init, RenderData& data) {
+
+
+    size_t buffer_size = sizeof(indices[0]) * indices.size();
+
+    VkBufferCreateInfo buffer_create_info = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
+    buffer_create_info.size = buffer_size;
+    buffer_create_info.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;//VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+
+    VmaAllocationCreateInfo staging_allocation_create_info = {};
+    staging_allocation_create_info.usage = VMA_MEMORY_USAGE_AUTO;
+    staging_allocation_create_info.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT;
+
+    VkBuffer staging_buffer;
+    VmaAllocation staging_allocation;
+    VmaAllocationInfo allocation_info;
+
+    // Staging buffer
+    auto result = vmaCreateBuffer(allocator, &buffer_create_info, &staging_allocation_create_info, &staging_buffer, &staging_allocation, &allocation_info);
+    if (result != VK_SUCCESS)
+    {
+        std::cout << "FAILED" << std::endl;
+    }
+    
+    // vmaCopyMemoryToAllocation(allocator, vertices.data(), staging_allocation, 0, buffer_size);
+    memcpy(allocation_info.pMappedData, indices.data(), buffer_size);
+    
+
+    buffer_create_info.usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+
+    VmaAllocationCreateInfo indices_allocation_create_info = {};
+    indices_allocation_create_info.usage = VMA_MEMORY_USAGE_AUTO;
+    indices_allocation_create_info.flags  = 0;
+
+    vmaCreateBuffer(allocator, &buffer_create_info, &indices_allocation_create_info, &init.indices_buffer, &init.indices_buffer_allocation, nullptr);
+    
+    copyBuffer(init, data, staging_buffer, init.indices_buffer, buffer_size);
+
+    vmaDestroyBuffer(allocator, staging_buffer, staging_allocation);
+}
 
 SDL_Window* create_window_glfw(const char* window_name = "", bool resize = true) {
     SDL_SetAppMetadata("Example Renderer Clear", "1.0", "com.example.renderer-clear");
@@ -647,7 +703,10 @@ int create_command_buffers(Init& init, RenderData& data) {
 
         VkDeviceSize offset = 0;
         init.disp.cmdBindVertexBuffers(data.command_buffers[i], 0, 1, &init.vertex_buffer, &offset);
-        init.disp.cmdDraw(data.command_buffers[i], 3, 1, 0, 0);
+        init.disp.cmdBindIndexBuffer(data.command_buffers[i], init.indices_buffer, 0, VK_INDEX_TYPE_UINT16);
+        
+        init.disp.cmdDrawIndexed(data.command_buffers[i], static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);
+        // init.disp.cmdDraw(data.command_buffers[i], 3, 1, 0, 0);
 
         init.disp.cmdEndRenderPass(data.command_buffers[i]);
 
@@ -706,10 +765,10 @@ int recreate_swapchain(Init& init, RenderData& data) {
 int draw_frame(Init& init, RenderData& data) {
     init.disp.waitForFences(1, &data.in_flight_fences[data.current_frame], VK_TRUE, UINT64_MAX);
 
-    ImGui_ImplVulkan_NewFrame();
-    ImGui_ImplSDL3_NewFrame();
-    ImGui::NewFrame();
-    ImGui::ShowDemoWindow(); // Show demo window! :)
+    // ImGui_ImplVulkan_NewFrame();
+    // ImGui_ImplSDL3_NewFrame();
+    // ImGui::NewFrame();
+    // ImGui::ShowDemoWindow(); // Show demo window! :)
 
     uint32_t image_index = 0;
     VkResult result = init.disp.acquireNextImageKHR(
@@ -770,8 +829,8 @@ int draw_frame(Init& init, RenderData& data) {
         return -1;
     }
 
-    ImGui::Render();
-    ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), data.command_buffers[data.current_frame]);
+    // ImGui::Render();
+    // ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), data.command_buffers[data.current_frame]);
 
     data.current_frame = (data.current_frame + 1) % MAX_FRAMES_IN_FLIGHT;
     return 0;
@@ -797,10 +856,11 @@ void cleanup(Init& init, RenderData& data) {
     init.swapchain.destroy_image_views(data.swapchain_image_views);
 
     vmaDestroyBuffer(allocator, init.vertex_buffer, init.vertex_buffer_allocation);
+    vmaDestroyBuffer(allocator, init.indices_buffer, init.indices_buffer_allocation);
 
-    ImGui_ImplVulkan_Shutdown();
-    ImGui_ImplSDL3_Shutdown();
-    ImGui::DestroyContext();
+    // ImGui_ImplVulkan_Shutdown();
+    // ImGui_ImplSDL3_Shutdown();
+    // ImGui::DestroyContext();
 
     vkb::destroy_swapchain(init.swapchain);
     vmaDestroyAllocator(allocator);
@@ -841,7 +901,8 @@ int main() {
     if (0 != create_command_pool(init, render_data)) return -1;
     
     createVertexBuffer(init, render_data);
-    initImGUI(init, render_data);
+    createIndicesBuffer(init, render_data);
+    // initImGUI(init, render_data);
     if (0 != create_command_buffers(init, render_data)) return -1;
     if (0 != create_sync_objects(init, render_data)) return -1;
 
