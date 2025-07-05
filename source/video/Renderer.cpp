@@ -626,10 +626,10 @@ bool recreate_swapchain(VulkanContext& ctx, RenderData& data, uint32_t width, ui
 
     ctx.swapchain.destroy_image_views(data.swapchain_image_views);
 
-    if (!create_swapchain(ctx, width, height))  return true;
-    if (!create_framebuffers(ctx, data))        return true;
-    if (!create_command_pool(ctx, data))        return true;
-    if (!create_command_buffers(ctx, data, 6))  return true; //TODO FIX
+    if (create_swapchain(ctx, width, height))  return true;
+    if (create_framebuffers(ctx, data))        return true;
+    if (create_command_pool(ctx, data))        return true;
+    if (create_command_buffers(ctx, data, 6))  return true; //TODO FIX
     return false;
 }
 
@@ -758,10 +758,11 @@ Renderer::~Renderer()
 
 bool Renderer::init(uint32_t width, uint32_t height)
 {
-    if (!device_initialization(m_ctx, width, height)) return true;
+    if (device_initialization(m_ctx, width, height)) return true;
 
     if (!allocatorCreated)
     {
+        SDL_LogError(SDL_LOG_CATEGORY_VIDEO, "Creating allocator");
         allocatorCreated = true;
         vulkanFunctions.vkGetInstanceProcAddr = (PFN_vkGetInstanceProcAddr)SDL_Vulkan_GetVkGetInstanceProcAddr();
         vulkanFunctions.vkGetDeviceProcAddr = &vkGetDeviceProcAddr;
@@ -782,14 +783,14 @@ bool Renderer::init(uint32_t width, uint32_t height)
         }
     }
 
-    if (!create_swapchain           (m_ctx, width, height))     return true;
-    if (!get_queues                 (m_ctx, m_render_data))     return true;
-    if (!create_render_pass         (m_ctx, m_render_data))     return true;
-    if (!create_graphics_pipeline   (m_ctx, m_render_data))     return true;
-    if (!create_framebuffers        (m_ctx, m_render_data))     return true;
-    if (!create_command_pool        (m_ctx, m_render_data))     return true;
-    if (!create_command_buffers     (m_ctx, m_render_data, 6))  return true; //TODO FIX
-    if (!create_sync_objects        (m_ctx, m_render_data))     return true;
+    if (create_swapchain           (m_ctx, width, height))     return true;
+    if (get_queues                 (m_ctx, m_render_data))     return true;
+    if (create_render_pass         (m_ctx, m_render_data))     return true;
+    if (create_graphics_pipeline   (m_ctx, m_render_data))     return true;
+    if (create_framebuffers        (m_ctx, m_render_data))     return true;
+    if (create_command_pool        (m_ctx, m_render_data))     return true;
+    if (create_command_buffers     (m_ctx, m_render_data, 6))  return true; //TODO FIX
+    if (create_sync_objects        (m_ctx, m_render_data))     return true;
     return false;
 }
 

@@ -5,6 +5,7 @@
 #include "video/Vertex.h"
 
 #include <vector>
+#include <iostream>
 
 const uint32_t SCREEN_WIDTH = 800;
 const uint32_t SCREEN_HEIGHT = 600;
@@ -26,10 +27,14 @@ int main(int argc, char const *argv[])
 {
     Renderer renderer;
 
-    renderer.init(SCREEN_WIDTH, SCREEN_HEIGHT);
+    if (renderer.init(SCREEN_WIDTH, SCREEN_HEIGHT))
+    {
+        std::cout << "Failure" << std::endl;
+    }
 
     renderer.createVertexBuffer(vertices);
     renderer.createIndicesBuffer(indices);
+
     SDL_Event event;
     while (event.type != SDL_EVENT_QUIT)
     {
