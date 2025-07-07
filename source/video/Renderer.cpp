@@ -1,6 +1,7 @@
 #include "video/Renderer.h"
 
 #include <fstream>
+#include "video/Renderer.h"
 
 
 const int MAX_FRAMES_IN_FLIGHT = 3;
@@ -394,7 +395,7 @@ bool create_command_pool(VulkanContext& ctx, RenderData& data)
     return false;
 }
 
-bool create_command_buffers(VulkanContext& ctx, RenderData& data, uint32_t indicesSize)
+bool record_command_buffers(VulkanContext& ctx, RenderData& data, uint32_t indicesSize)
 {
     data.command_buffers.resize(data.framebuffers.size());
 
@@ -629,7 +630,7 @@ bool recreate_swapchain(VulkanContext& ctx, RenderData& data, uint32_t width, ui
     if (create_swapchain(ctx, width, height))  return true;
     if (create_framebuffers(ctx, data))        return true;
     if (create_command_pool(ctx, data))        return true;
-    if (create_command_buffers(ctx, data, 6))  return true; //TODO FIX
+    if (record_command_buffers(ctx, data, 6))  return true; //TODO FIX
     return false;
 }
 
@@ -776,6 +777,8 @@ bool Renderer::init(uint32_t width, uint32_t height)
         allocatorCreateInfo.pVulkanFunctions = &vulkanFunctions;
         VkResult result = vmaCreateAllocator(&allocatorCreateInfo, &allocator);
 
+        SDL_LogError(SDL_LOG_CATEGORY_VIDEO, "Created allocator");
+
         if (result != VK_SUCCESS)
         {
             SDL_LogError(SDL_LOG_CATEGORY_VIDEO, "Could not create a VmaAllocator");
@@ -789,7 +792,6 @@ bool Renderer::init(uint32_t width, uint32_t height)
     if (create_graphics_pipeline   (m_ctx, m_render_data))     return true;
     if (create_framebuffers        (m_ctx, m_render_data))     return true;
     if (create_command_pool        (m_ctx, m_render_data))     return true;
-    if (create_command_buffers     (m_ctx, m_render_data, 6))  return true; //TODO FIX
     if (create_sync_objects        (m_ctx, m_render_data))     return true;
     return false;
 }
@@ -812,4 +814,9 @@ bool Renderer::createVertexBuffer(const std::vector<Vertex> &vertices)
 bool Renderer::createIndicesBuffer(const std::vector<uint16_t> &indices)
 {
     return create_indices_buffer(m_ctx, m_render_data, allocator, indices);
+}
+
+bool Renderer::recordCommandBuffer(const std::vector<uint16_t> &indicies)
+{
+    return record_command_buffers(m_ctx, m_render_data, indicies.size());
 }

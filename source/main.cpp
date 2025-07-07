@@ -35,6 +35,7 @@ int main(int argc, char const *argv[])
     renderer.createVertexBuffer(vertices);
     renderer.createIndicesBuffer(indices);
 
+    renderer.recordCommandBuffer(indices);
     SDL_Event event;
     while (event.type != SDL_EVENT_QUIT)
     {
