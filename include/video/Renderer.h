@@ -19,7 +19,7 @@ class Renderer
         RenderData m_render_data;
 
         bool allocatorCreated;
-        VmaVulkanFunctions vulkanFunctions;
+        VmaVulkanFunctions vulkanFunctions {};
         VmaAllocator allocator;
     public:
         Renderer(/* args */);
