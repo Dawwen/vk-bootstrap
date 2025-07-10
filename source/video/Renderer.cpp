@@ -38,7 +38,7 @@ SDL_Window* create_window(const char* window_name, uint32_t width, uint32_t heig
         SDL_LogError(SDL_LOG_CATEGORY_VIDEO, "Couldn't initialize SDL: %s", SDL_GetError());
     }
 
-    SDL_Window* window = SDL_CreateWindow("examples/renderer/clear", width, height, SDL_WINDOW_VULKAN);
+    SDL_Window* window = SDL_CreateWindow("examples/renderer/clear", width, height, SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE);
     if (window == nullptr)
     {
         SDL_LogError(SDL_LOG_CATEGORY_VIDEO, "Couldn't create Vulkan window: %s", SDL_GetError());
@@ -550,10 +550,7 @@ bool create_vertex_buffer(VulkanContext& ctx, RenderData& data, VmaAllocator& al
         return true;
     }
     
-    //TODO try me
-    // vmaCopyMemoryToAllocation(allocator, vertices.data(), staging_allocation, 0, buffer_size);
-    memcpy(allocation_info.pMappedData, vertices.data(), buffer_size);
-    
+    vmaCopyMemoryToAllocation(allocator, vertices.data(), staging_allocation, 0, buffer_size);
 
     buffer_create_info.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
 
@@ -644,6 +641,8 @@ int draw_frame(VulkanContext& ctx, RenderData& data, uint32_t width, uint32_t he
 
     if (result == VK_ERROR_OUT_OF_DATE_KHR)
     {
+        int w,h;
+        bool result = SDL_GetWindowSizeInPixels(ctx.window, &w, &h);
         return recreate_swapchain(ctx, data, width, height);
     }
     else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR)
@@ -763,7 +762,6 @@ bool Renderer::init(uint32_t width, uint32_t height)
 
     if (!allocatorCreated)
     {
-        SDL_LogError(SDL_LOG_CATEGORY_VIDEO, "Creating allocator");
         allocatorCreated = true;
         vulkanFunctions.vkGetInstanceProcAddr = (PFN_vkGetInstanceProcAddr)SDL_Vulkan_GetVkGetInstanceProcAddr();
         vulkanFunctions.vkGetDeviceProcAddr = &vkGetDeviceProcAddr;
@@ -776,8 +774,6 @@ bool Renderer::init(uint32_t width, uint32_t height)
         allocatorCreateInfo.instance = m_ctx.instance;
         allocatorCreateInfo.pVulkanFunctions = &vulkanFunctions;
         VkResult result = vmaCreateAllocator(&allocatorCreateInfo, &allocator);
-
-        SDL_LogError(SDL_LOG_CATEGORY_VIDEO, "Created allocator");
 
         if (result != VK_SUCCESS)
         {
