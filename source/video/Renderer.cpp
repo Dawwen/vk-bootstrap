@@ -631,7 +631,7 @@ bool recreate_swapchain(VulkanContext& ctx, RenderData& data, uint32_t width, ui
     return false;
 }
 
-int draw_frame(VulkanContext& ctx, RenderData& data, uint32_t width, uint32_t height)
+int draw_frame(VulkanContext& ctx, RenderData& data)
 {
     ctx.disp.waitForFences(1, &data.in_flight_fences[data.current_frame], VK_TRUE, UINT64_MAX);
 
@@ -639,17 +639,17 @@ int draw_frame(VulkanContext& ctx, RenderData& data, uint32_t width, uint32_t he
     VkResult result = ctx.disp.acquireNextImageKHR(
         ctx.swapchain, UINT64_MAX, data.available_semaphores[data.current_frame], VK_NULL_HANDLE, &image_index);
 
-    if (result == VK_ERROR_OUT_OF_DATE_KHR)
-    {
-        int w,h;
-        bool result = SDL_GetWindowSizeInPixels(ctx.window, &w, &h);
-        return recreate_swapchain(ctx, data, width, height);
-    }
-    else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR)
-    {
-        SDL_LogError(SDL_LOG_CATEGORY_VIDEO, "failed to acquire swapchain image");
-        return true;
-    }
+    // Those do not work on SDL3 (Never get the signal)
+    // if (result == VK_ERROR_OUT_OF_DATE_KHR)
+    // {
+    //     SDL_LogError(SDL_LOG_CATEGORY_VIDEO, "recreate_swapchain");
+    //     return recreate_swapchain(ctx, data);
+    // }
+    // else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR)
+    // {
+    //     SDL_LogError(SDL_LOG_CATEGORY_VIDEO, "failed to acquire swapchain image");
+    //     return true;
+    // }
 
     if (data.image_in_flight[image_index] != VK_NULL_HANDLE)
     {
@@ -694,15 +694,17 @@ int draw_frame(VulkanContext& ctx, RenderData& data, uint32_t width, uint32_t he
     present_info.pImageIndices = &image_index;
 
     result = ctx.disp.queuePresentKHR(data.present_queue, &present_info);
-    if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR)\
-    {
-        return recreate_swapchain(ctx, data, width, height);
-    }
-    else if (result != VK_SUCCESS)
-    {
-        SDL_LogError(SDL_LOG_CATEGORY_VIDEO, "failed to present swapchain image");
-        return true;
-    }
+
+    // Those do not work on SDL3 (Never get the signal)
+    // if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR)\
+    // {
+    //     return recreate_swapchain(ctx, data);
+    // }
+    // else if (result != VK_SUCCESS)
+    // {
+    //     SDL_LogError(SDL_LOG_CATEGORY_VIDEO, "failed to present swapchain image");
+    //     return true;
+    // }
 
     data.current_frame = (data.current_frame + 1) % MAX_FRAMES_IN_FLIGHT;
     return 0;
@@ -792,14 +794,16 @@ bool Renderer::init(uint32_t width, uint32_t height)
     return false;
 }
 
-bool Renderer::recreateSwapChain(uint32_t width, uint32_t height)
-{
-    return recreate_swapchain(m_ctx, m_render_data, width, height);
-}
-
 bool Renderer::drawFrame()
 {
-    return draw_frame(m_ctx, m_render_data, 800, 600); //TODO fixme
+    return draw_frame(m_ctx, m_render_data); //TODO fixme
+}
+
+bool Renderer::resize()
+{
+    int width, height;
+    bool result = SDL_GetWindowSizeInPixels(m_ctx.window, &width, &height);
+    return recreate_swapchain(m_ctx, m_render_data, width, height);
 }
 
 bool Renderer::createVertexBuffer(const std::vector<Vertex> &vertices)

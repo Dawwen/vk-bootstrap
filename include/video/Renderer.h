@@ -25,8 +25,8 @@ class Renderer
         Renderer(/* args */);
         ~Renderer();
         bool init(uint32_t width, uint32_t height);
-        bool recreateSwapChain(uint32_t width, uint32_t height);
         bool drawFrame();
+        bool resize();
 
         bool createVertexBuffer(const std::vector<Vertex>& vertices);
         bool createIndicesBuffer(const std::vector<uint16_t>& indices);

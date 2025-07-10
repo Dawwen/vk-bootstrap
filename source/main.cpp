@@ -7,8 +7,8 @@
 #include <vector>
 #include <iostream>
 
-const uint32_t SCREEN_WIDTH = 800;
-const uint32_t SCREEN_HEIGHT = 600;
+const uint32_t SCREEN_WIDTH = 120;
+const uint32_t SCREEN_HEIGHT = 120;
 
 
 const std::vector<Vertex> vertices = {
@@ -29,7 +29,8 @@ int main(int argc, char const *argv[])
 
     if (renderer.init(SCREEN_WIDTH, SCREEN_HEIGHT))
     {
-        std::cout << "Failure" << std::endl;
+        SDL_LogError(SDL_LOG_CATEGORY_VIDEO, "failed to init Renderer");
+        return true;
     }
 
     renderer.createVertexBuffer(vertices);
@@ -40,6 +41,11 @@ int main(int argc, char const *argv[])
     while (event.type != SDL_EVENT_QUIT)
     {
         SDL_PollEvent(&event);
+        if (event.type == SDL_EVENT_WINDOW_RESIZED)
+        {
+            renderer.resize();
+        }
+        
         int res = renderer.drawFrame();
         if (res != 0)
         {
