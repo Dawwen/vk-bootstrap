@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 4.0)
+cmake_minimum_required(VERSION 3.12)
 
 
 # This is your project statement. You should always list languages;
@@ -23,7 +23,10 @@ add_executable(MyExample
                     thirdparty/imgui/imgui_demo.cpp
                     thirdparty/imgui/backends/imgui_impl_sdl3.cpp
                     thirdparty/imgui/backends/imgui_impl_vulkan.cpp
-                    main.cpp)
+
+                    source/video/Renderer.cpp
+                    source/video/VmaUsage.cpp
+                    source/main.cpp)
 
 include(FetchContent)
 
