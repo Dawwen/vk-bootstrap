@@ -44,6 +44,7 @@ int main(int argc, char const *argv[])
         if (event.type == SDL_EVENT_WINDOW_RESIZED)
         {
             renderer.resize();
+            renderer.recordCommandBuffer(indices);
         }
         
         int res = renderer.drawFrame();

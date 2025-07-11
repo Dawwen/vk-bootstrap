@@ -5,6 +5,7 @@
 #include <SDL3/SDL.h>
 #include <VkBootstrap.h>
 
+
 struct VulkanContext {
     SDL_Window* window;
     vkb::Instance instance;
@@ -17,8 +18,6 @@ struct VulkanContext {
     VmaAllocation vertex_buffer_allocation;
     VkBuffer vertex_buffer;
 
-    VmaAllocation indices_buffer_allocation;
-    VkBuffer indices_buffer;
 };
 
 struct RenderData {

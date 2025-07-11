@@ -26,6 +26,7 @@ add_executable(MyExample
 
                     source/video/Renderer.cpp
                     source/video/VmaUsage.cpp
+                    source/video/Buffer.cpp
                     source/main.cpp)
 
 include(FetchContent)
@@ -54,7 +55,7 @@ endif()
 
 include_dependency(fetch_vk_bootstrap https://github.com/charles-lunarg/vk-bootstrap b934b6c76cf7c3b7bef76c0ddd43a0996f8b9f92)
 
-include_dependency(fetch_vma https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator 6ec8481c8a13db586d7b3ba58f4eb9bbf017edf0)
+include_dependency(fetch_vma https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator 1d8f600fd424278486eade7ed3e877c99f0846b1)
 
 find_package(Vulkan REQUIRED)
 

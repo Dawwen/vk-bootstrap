@@ -11,16 +11,16 @@
 
 #include "video/renderer_struct.h"
 #include "video/Vertex.h"
+#include "video/Buffer.h"
 
 class Renderer
 {
     private:
         VulkanContext m_ctx;
         RenderData m_render_data;
+        
+        Buffer* m_index_buffer;
 
-        bool allocatorCreated;
-        VmaVulkanFunctions vulkanFunctions {};
-        VmaAllocator allocator;
     public:
         Renderer(/* args */);
         ~Renderer();

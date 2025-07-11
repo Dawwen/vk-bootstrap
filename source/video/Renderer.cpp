@@ -1,7 +1,11 @@
 #include "video/Renderer.h"
 
 #include <fstream>
+
 #include "video/Renderer.h"
+#include "video/Buffer.h"
+#include "video/Vertex.h"
+#include "video/VmaUsage.h"
 
 
 const int MAX_FRAMES_IN_FLIGHT = 3;
@@ -395,7 +399,7 @@ bool create_command_pool(VulkanContext& ctx, RenderData& data)
     return false;
 }
 
-bool record_command_buffers(VulkanContext& ctx, RenderData& data, uint32_t indicesSize)
+bool record_command_buffers(VulkanContext& ctx, RenderData& data, Buffer* index_buffer, uint32_t indicesSize)
 {
     data.command_buffers.resize(data.framebuffers.size());
 
@@ -452,7 +456,7 @@ bool record_command_buffers(VulkanContext& ctx, RenderData& data, uint32_t indic
 
         ctx.disp.cmdBindPipeline(data.command_buffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, data.graphics_pipeline);
         ctx.disp.cmdBindVertexBuffers(data.command_buffers[i], 0, 1, &ctx.vertex_buffer, &offset);
-        ctx.disp.cmdBindIndexBuffer(data.command_buffers[i], ctx.indices_buffer, 0, VK_INDEX_TYPE_UINT16);
+        ctx.disp.cmdBindIndexBuffer(data.command_buffers[i], index_buffer->getBuffer(), 0, VK_INDEX_TYPE_UINT16);
         ctx.disp.cmdDrawIndexed(data.command_buffers[i], indicesSize, 1, 0, 0, 0);
         
         ctx.disp.cmdEndRenderPass(data.command_buffers[i]);
@@ -567,45 +571,20 @@ bool create_vertex_buffer(VulkanContext& ctx, RenderData& data, VmaAllocator& al
 }
 
 
-bool create_indices_buffer(VulkanContext& ctx, RenderData& data, VmaAllocator& allocator, const std::vector<uint16_t>& indices)
+bool create_indices_buffer(VulkanContext& ctx, RenderData& data, Buffer** index_buffer, const std::vector<uint16_t>& indices)
 {
     size_t buffer_size = sizeof(indices[0]) * indices.size();
 
-    VkBufferCreateInfo buffer_create_info = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
-    buffer_create_info.size = buffer_size;
-    buffer_create_info.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;//VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+    Buffer staging_buffer {BufferType::StagingBuffer, buffer_size};
+    *index_buffer = new Buffer(BufferType::IndiceBuffer, buffer_size);
 
-    VmaAllocationCreateInfo staging_allocation_create_info = {};
-    staging_allocation_create_info.usage = VMA_MEMORY_USAGE_AUTO;
-    staging_allocation_create_info.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT;
+    staging_buffer.copyToStagingBuffer(indices.data(), buffer_size);
 
-    VkBuffer staging_buffer;
-    VmaAllocation staging_allocation;
-    VmaAllocationInfo allocation_info;
-
-    // Staging buffer
-    auto result = vmaCreateBuffer(allocator, &buffer_create_info, &staging_allocation_create_info, &staging_buffer, &staging_allocation, &allocation_info);
-    if (result != VK_SUCCESS)
+    if (Buffer::copyTo(ctx, data, staging_buffer, **index_buffer))
     {
-        SDL_LogError(SDL_LOG_CATEGORY_VIDEO, "failed to create staging buffer");
         return true;
     }
-    
-    // vmaCopyMemoryToAllocation(allocator, vertices.data(), staging_allocation, 0, buffer_size);
-    memcpy(allocation_info.pMappedData, indices.data(), buffer_size);
-    
 
-    buffer_create_info.usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
-
-    VmaAllocationCreateInfo indices_allocation_create_info = {};
-    indices_allocation_create_info.usage = VMA_MEMORY_USAGE_AUTO;
-    indices_allocation_create_info.flags  = 0;
-
-    vmaCreateBuffer(allocator, &buffer_create_info, &indices_allocation_create_info, &ctx.indices_buffer, &ctx.indices_buffer_allocation, nullptr);
-    
-    copyBuffer(ctx, data, staging_buffer, ctx.indices_buffer, buffer_size);
-
-    vmaDestroyBuffer(allocator, staging_buffer, staging_allocation);
     return false;
 }
 
@@ -627,7 +606,7 @@ bool recreate_swapchain(VulkanContext& ctx, RenderData& data, uint32_t width, ui
     if (create_swapchain(ctx, width, height))  return true;
     if (create_framebuffers(ctx, data))        return true;
     if (create_command_pool(ctx, data))        return true;
-    if (record_command_buffers(ctx, data, 6))  return true; //TODO FIX
+    // if (record_command_buffers(ctx, data, m_index_buffer, 6))  return true; //TODO FIX
     return false;
 }
 
@@ -711,8 +690,10 @@ int draw_frame(VulkanContext& ctx, RenderData& data)
 }
 
 
-void cleanup(VulkanContext& ctx, RenderData& data, VmaAllocator allocator)
+void cleanup(VulkanContext& ctx, RenderData& data)
 {
+    VmaAllocator& allocator = getAllocator(); 
+
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
         ctx.disp.destroySemaphore(data.finished_semaphore[i], nullptr);
@@ -734,10 +715,10 @@ void cleanup(VulkanContext& ctx, RenderData& data, VmaAllocator allocator)
     ctx.swapchain.destroy_image_views(data.swapchain_image_views);
 
     vmaDestroyBuffer(allocator, ctx.vertex_buffer, ctx.vertex_buffer_allocation);
-    vmaDestroyBuffer(allocator, ctx.indices_buffer, ctx.indices_buffer_allocation);
+    // vmaDestroyBuffer(allocator, ctx.indices_buffer, ctx.indices_buffer_allocation);
 
     vkb::destroy_swapchain(ctx.swapchain);
-    vmaDestroyAllocator(allocator);
+    destroyAllocator();
     vkb::destroy_device(ctx.device);
     vkb::destroy_surface(ctx.instance, ctx.surface);
     vkb::destroy_instance(ctx.instance);
@@ -754,35 +735,16 @@ Renderer::Renderer(/* args */)
 Renderer::~Renderer()
 {
     m_ctx.disp.deviceWaitIdle();
-
-    cleanup(m_ctx, m_render_data, allocator);
+    delete m_index_buffer;
+    cleanup(m_ctx, m_render_data);
 }
 
 bool Renderer::init(uint32_t width, uint32_t height)
 {
     if (device_initialization(m_ctx, width, height)) return true;
 
-    if (!allocatorCreated)
-    {
-        allocatorCreated = true;
-        vulkanFunctions.vkGetInstanceProcAddr = (PFN_vkGetInstanceProcAddr)SDL_Vulkan_GetVkGetInstanceProcAddr();
-        vulkanFunctions.vkGetDeviceProcAddr = &vkGetDeviceProcAddr;
-
-        VmaAllocatorCreateInfo allocatorCreateInfo = {};
-        allocatorCreateInfo.flags = VMA_ALLOCATOR_CREATE_EXT_MEMORY_BUDGET_BIT;
-        allocatorCreateInfo.vulkanApiVersion = VK_API_VERSION_1_2;
-        allocatorCreateInfo.physicalDevice = m_ctx.device.physical_device;
-        allocatorCreateInfo.device = m_ctx.device.device;
-        allocatorCreateInfo.instance = m_ctx.instance;
-        allocatorCreateInfo.pVulkanFunctions = &vulkanFunctions;
-        VkResult result = vmaCreateAllocator(&allocatorCreateInfo, &allocator);
-
-        if (result != VK_SUCCESS)
-        {
-            SDL_LogError(SDL_LOG_CATEGORY_VIDEO, "Could not create a VmaAllocator");
-            return true;
-        }
-    }
+    // Force allocator creation
+    createAllocator(m_ctx);
 
     if (create_swapchain           (m_ctx, width, height))     return true;
     if (get_queues                 (m_ctx, m_render_data))     return true;
@@ -808,15 +770,15 @@ bool Renderer::resize()
 
 bool Renderer::createVertexBuffer(const std::vector<Vertex> &vertices)
 {
-    return create_vertex_buffer(m_ctx, m_render_data, allocator, vertices);
+    return create_vertex_buffer(m_ctx, m_render_data, getAllocator(), vertices);
 }
 
 bool Renderer::createIndicesBuffer(const std::vector<uint16_t> &indices)
 {
-    return create_indices_buffer(m_ctx, m_render_data, allocator, indices);
+    return create_indices_buffer(m_ctx, m_render_data, &m_index_buffer, indices);
 }
 
 bool Renderer::recordCommandBuffer(const std::vector<uint16_t> &indicies)
 {
-    return record_command_buffers(m_ctx, m_render_data, indicies.size());
+    return record_command_buffers(m_ctx, m_render_data,  m_index_buffer ,indicies.size());
 }
