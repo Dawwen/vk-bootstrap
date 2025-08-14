@@ -8,7 +8,7 @@ project(
   VERSION 1.0
   LANGUAGES CXX)
 
-
+set (CMAKE_GENERATOR "Unix Makefiles" CACHE INTERNAL "" FORCE)
 # set (CMAKE_CXX_STANDARD 20)
 
 include_directories(include thirdparty/imgui)
@@ -53,7 +53,7 @@ else()
     message(STATUS "Using local SDL3")
 endif()
 
-include_dependency(fetch_vk_bootstrap https://github.com/charles-lunarg/vk-bootstrap b934b6c76cf7c3b7bef76c0ddd43a0996f8b9f92)
+include_dependency(fetch_vk_bootstrap https://github.com/charles-lunarg/vk-bootstrap ffa964552f8bdf2c41e8e9a81a80637c39dd7afc)
 
 include_dependency(fetch_vma https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator 1d8f600fd424278486eade7ed3e877c99f0846b1)
 
