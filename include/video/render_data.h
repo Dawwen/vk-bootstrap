@@ -13,7 +13,6 @@ struct RenderData {
     Buffer* vertex_buffer = nullptr;
     Buffer* index_buffer  = nullptr;
 
-
     //TODO fix by using buffer class
     std::vector<Buffer*> uniformBuffers;
 
