@@ -20,8 +20,6 @@ class Renderer
         VulkanContext m_ctx;
         RenderData m_render_data;
         
-        Buffer* m_index_buffer;
-
     public:
         Renderer(/* args */);
         ~Renderer();

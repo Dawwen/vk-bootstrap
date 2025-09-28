@@ -11,8 +11,8 @@ struct RenderData {
     std::vector<VkFramebuffer> framebuffers;
 
     Buffer* vertex_buffer = nullptr;
-    // VmaAllocation vertex_buffer_allocation;
-    // VkBuffer vertex_buffer;
+    Buffer* index_buffer  = nullptr;
+
 
     //TODO fix by using buffer class
     std::vector<Buffer*> uniformBuffers;

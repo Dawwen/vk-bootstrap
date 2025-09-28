@@ -704,6 +704,7 @@ void cleanup(VulkanContext& ctx, RenderData& data)
     ctx.swapchain.destroy_image_views(data.swapchain_image_views);
 
     delete data.vertex_buffer;
+    delete data.index_buffer;
 
     vkb::destroy_swapchain(ctx.swapchain);
     destroyAllocator();
@@ -723,7 +724,6 @@ Renderer::Renderer(/* args */)
 Renderer::~Renderer()
 {
     m_ctx.disp.deviceWaitIdle();
-    delete m_index_buffer;
     cleanup(m_ctx, m_render_data);
 }
 
@@ -765,10 +765,10 @@ bool Renderer::createVertexBuffer(const std::vector<Vertex> &vertices)
 bool Renderer::createIndicesBuffer(const std::vector<uint16_t> &indices)
 {
     size_t buffer_size = sizeof(indices[0]) * indices.size();
-    return create_gpu_buffer(m_ctx, BufferType::IndiceBuffer, &m_index_buffer, static_cast<const void*>(indices.data()), buffer_size);
+    return create_gpu_buffer(m_ctx, BufferType::IndiceBuffer, &m_render_data.index_buffer, static_cast<const void*>(indices.data()), buffer_size);
 }
 
 bool Renderer::recordCommandBuffer(const std::vector<uint16_t> &indicies)
 {
-    return record_command_buffers(m_ctx, m_render_data,  m_index_buffer ,indicies.size());
+    return record_command_buffers(m_ctx, m_render_data,  m_render_data.index_buffer ,indicies.size());
 }
