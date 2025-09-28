@@ -71,7 +71,7 @@ bool Buffer::copyToStagingBuffer(const void *buffer, size_t size, VkDeviceSize o
     
 }
 
-bool Buffer::copyTo(VulkanContext& ctx, RenderData& data, Buffer& src, Buffer& dst)
+bool Buffer::copyTo(VulkanContext& ctx, Buffer& src, Buffer& dst)
 {
     if (src.getSize() != dst.getSize())
     {
@@ -83,7 +83,7 @@ bool Buffer::copyTo(VulkanContext& ctx, RenderData& data, Buffer& src, Buffer& d
     VkCommandBufferAllocateInfo allocInfo{};
     allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
     allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-    allocInfo.commandPool = data.command_pool;
+    allocInfo.commandPool = ctx.command_pool;
     allocInfo.commandBufferCount = 1;
 
     VkCommandBuffer commandBuffer;
@@ -106,9 +106,9 @@ bool Buffer::copyTo(VulkanContext& ctx, RenderData& data, Buffer& src, Buffer& d
     submitInfo.commandBufferCount = 1;
     submitInfo.pCommandBuffers = &commandBuffer;
 
-    vkQueueSubmit(data.graphics_queue, 1, &submitInfo, VK_NULL_HANDLE);
-    vkQueueWaitIdle(data.graphics_queue);
+    vkQueueSubmit(ctx.graphics_queue, 1, &submitInfo, VK_NULL_HANDLE);
+    vkQueueWaitIdle(ctx.graphics_queue);
 
-    vkFreeCommandBuffers(ctx.device.device, data.command_pool, 1, &commandBuffer);
+    vkFreeCommandBuffers(ctx.device.device, ctx.command_pool, 1, &commandBuffer);
     return false;
 }

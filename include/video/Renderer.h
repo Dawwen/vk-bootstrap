@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "video/renderer_struct.h"
+#include "video/render_data.h"
 #include "video/Vertex.h"
 #include "video/Buffer.h"
 

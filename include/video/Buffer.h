@@ -32,7 +32,7 @@ class Buffer
         VkBuffer& getBuffer();
         uint32_t getNumberOfElements();
         bool copyToStagingBuffer(const void* buffer, size_t size, VkDeviceSize offset=0);
-        static bool copyTo(VulkanContext& ctx, RenderData& data, Buffer& src, Buffer& dst);
+        static bool copyTo(VulkanContext& ctx, Buffer& src, Buffer& dst);
 
 
 };

@@ -135,7 +135,7 @@ bool get_queues(VulkanContext& ctx, RenderData& data)
         SDL_LogError(SDL_LOG_CATEGORY_VIDEO, gq.error().message().c_str());
         return true;
     }
-    data.graphics_queue = gq.value();
+    ctx.graphics_queue = gq.value();
 
     auto pq = ctx.device.get_queue(vkb::QueueType::present);
     if (!pq.has_value())
@@ -143,7 +143,7 @@ bool get_queues(VulkanContext& ctx, RenderData& data)
         SDL_LogError(SDL_LOG_CATEGORY_VIDEO, pq.error().message().c_str());
         return true;
     }
-    data.present_queue = pq.value();
+    ctx.present_queue = pq.value();
     return false;
 }
 
@@ -391,7 +391,7 @@ bool create_command_pool(VulkanContext& ctx, RenderData& data)
     pool_info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
     pool_info.queueFamilyIndex = ctx.device.get_queue_index(vkb::QueueType::graphics).value();
 
-    if (ctx.disp.createCommandPool(&pool_info, nullptr, &data.command_pool) != VK_SUCCESS)\
+    if (ctx.disp.createCommandPool(&pool_info, nullptr, &ctx.command_pool) != VK_SUCCESS)\
     {
         SDL_LogError(SDL_LOG_CATEGORY_VIDEO, "failed to create command pool");
         return true;
@@ -405,7 +405,7 @@ bool record_command_buffers(VulkanContext& ctx, RenderData& data, Buffer* index_
 
     VkCommandBufferAllocateInfo allocInfo = {};
     allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-    allocInfo.commandPool = data.command_pool;
+    allocInfo.commandPool = ctx.command_pool;
     allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
     allocInfo.commandBufferCount = (uint32_t)data.command_buffers.size();
 
@@ -455,7 +455,7 @@ bool record_command_buffers(VulkanContext& ctx, RenderData& data, Buffer* index_
         ctx.disp.cmdBeginRenderPass(data.command_buffers[i], &render_pass_info, VK_SUBPASS_CONTENTS_INLINE);
 
         ctx.disp.cmdBindPipeline(data.command_buffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, data.graphics_pipeline);
-        ctx.disp.cmdBindVertexBuffers(data.command_buffers[i], 0, 1, &ctx.vertex_buffer, &offset);
+        ctx.disp.cmdBindVertexBuffers(data.command_buffers[i], 0, 1, &data.vertex_buffer, &offset);
         ctx.disp.cmdBindIndexBuffer(data.command_buffers[i], index_buffer->getBuffer(), 0, VK_INDEX_TYPE_UINT16);
         ctx.disp.cmdDrawIndexed(data.command_buffers[i], indicesSize, 1, 0, 0, 0);
         
@@ -501,7 +501,7 @@ void copyBuffer(VulkanContext& ctx, RenderData& data, VkBuffer srcBuffer, VkBuff
     VkCommandBufferAllocateInfo allocInfo{};
     allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
     allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-    allocInfo.commandPool = data.command_pool;
+    allocInfo.commandPool = ctx.command_pool;
     allocInfo.commandBufferCount = 1;
 
     VkCommandBuffer commandBuffer;
@@ -524,10 +524,10 @@ void copyBuffer(VulkanContext& ctx, RenderData& data, VkBuffer srcBuffer, VkBuff
     submitInfo.commandBufferCount = 1;
     submitInfo.pCommandBuffers = &commandBuffer;
 
-    vkQueueSubmit(data.graphics_queue, 1, &submitInfo, VK_NULL_HANDLE);
-    vkQueueWaitIdle(data.graphics_queue);
+    vkQueueSubmit(ctx.graphics_queue, 1, &submitInfo, VK_NULL_HANDLE);
+    vkQueueWaitIdle(ctx.graphics_queue);
 
-    vkFreeCommandBuffers(ctx.device.device, data.command_pool, 1, &commandBuffer);
+    vkFreeCommandBuffers(ctx.device.device, ctx.command_pool, 1, &commandBuffer);
 }
 
 bool create_vertex_buffer(VulkanContext& ctx, RenderData& data, VmaAllocator& allocator, const std::vector<Vertex>& vertices)
@@ -562,9 +562,9 @@ bool create_vertex_buffer(VulkanContext& ctx, RenderData& data, VmaAllocator& al
     vertex_allocation_create_info.usage = VMA_MEMORY_USAGE_AUTO;
     vertex_allocation_create_info.flags  = 0;
 
-    vmaCreateBuffer(allocator, &buffer_create_info, &vertex_allocation_create_info, &ctx.vertex_buffer, &ctx.vertex_buffer_allocation, nullptr);
+    vmaCreateBuffer(allocator, &buffer_create_info, &vertex_allocation_create_info, &data.vertex_buffer, &data.vertex_buffer_allocation, nullptr);
     
-    copyBuffer(ctx, data, staging_buffer, ctx.vertex_buffer, buffer_size);
+    copyBuffer(ctx, data, staging_buffer, data.vertex_buffer, buffer_size);
 
     vmaDestroyBuffer(allocator, staging_buffer, staging_allocation);
     return false;
@@ -580,7 +580,7 @@ bool create_indices_buffer(VulkanContext& ctx, RenderData& data, Buffer** index_
 
     staging_buffer.copyToStagingBuffer(indices.data(), buffer_size);
 
-    if (Buffer::copyTo(ctx, data, staging_buffer, **index_buffer))
+    if (Buffer::copyTo(ctx, staging_buffer, **index_buffer))
     {
         return true;
     }
@@ -594,7 +594,7 @@ bool recreate_swapchain(VulkanContext& ctx, RenderData& data, uint32_t width, ui
 {
     ctx.disp.deviceWaitIdle();
 
-    ctx.disp.destroyCommandPool(data.command_pool, nullptr);
+    ctx.disp.destroyCommandPool(ctx.command_pool, nullptr);
 
     for (auto framebuffer : data.framebuffers)
     {
@@ -654,7 +654,7 @@ int draw_frame(VulkanContext& ctx, RenderData& data)
 
     ctx.disp.resetFences(1, &data.in_flight_fences[data.current_frame]);
 
-    if (ctx.disp.queueSubmit(data.graphics_queue, 1, &submitInfo, data.in_flight_fences[data.current_frame]) != VK_SUCCESS)
+    if (ctx.disp.queueSubmit(ctx.graphics_queue, 1, &submitInfo, data.in_flight_fences[data.current_frame]) != VK_SUCCESS)
     {
         SDL_LogError(SDL_LOG_CATEGORY_VIDEO, "failed to submit draw command buffer");
         return true;
@@ -672,7 +672,7 @@ int draw_frame(VulkanContext& ctx, RenderData& data)
 
     present_info.pImageIndices = &image_index;
 
-    result = ctx.disp.queuePresentKHR(data.present_queue, &present_info);
+    result = ctx.disp.queuePresentKHR(ctx.present_queue, &present_info);
 
     // Those do not work on SDL3 (Never get the signal)
     // if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR)\
@@ -701,7 +701,7 @@ void cleanup(VulkanContext& ctx, RenderData& data)
         ctx.disp.destroyFence(data.in_flight_fences[i], nullptr);
     }
 
-    ctx.disp.destroyCommandPool(data.command_pool, nullptr);
+    ctx.disp.destroyCommandPool(ctx.command_pool, nullptr);
 
     for (auto framebuffer : data.framebuffers)
     {
@@ -714,7 +714,7 @@ void cleanup(VulkanContext& ctx, RenderData& data)
 
     ctx.swapchain.destroy_image_views(data.swapchain_image_views);
 
-    vmaDestroyBuffer(allocator, ctx.vertex_buffer, ctx.vertex_buffer_allocation);
+    vmaDestroyBuffer(allocator, data.vertex_buffer, data.vertex_buffer_allocation);
     // vmaDestroyBuffer(allocator, ctx.indices_buffer, ctx.indices_buffer_allocation);
 
     vkb::destroy_swapchain(ctx.swapchain);
