@@ -399,7 +399,7 @@ bool create_command_pool(VulkanContext& ctx, RenderData& data)
     return false;
 }
 
-bool record_command_buffers(VulkanContext& ctx, RenderData& data, Buffer* index_buffer, uint32_t indicesSize)
+bool record_command_buffers(VulkanContext& ctx, RenderData& data)
 {
     data.command_buffers.resize(data.framebuffers.size());
 
@@ -456,8 +456,8 @@ bool record_command_buffers(VulkanContext& ctx, RenderData& data, Buffer* index_
 
         ctx.disp.cmdBindPipeline(data.command_buffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, data.graphics_pipeline);
         ctx.disp.cmdBindVertexBuffers(data.command_buffers[i], 0, 1, &data.vertex_buffer->getBuffer(), &offset);
-        ctx.disp.cmdBindIndexBuffer(data.command_buffers[i], index_buffer->getBuffer(), 0, VK_INDEX_TYPE_UINT16);
-        ctx.disp.cmdDrawIndexed(data.command_buffers[i], indicesSize, 1, 0, 0, 0);
+        ctx.disp.cmdBindIndexBuffer(data.command_buffers[i], data.index_buffer->getBuffer(), 0, VK_INDEX_TYPE_UINT16);
+        ctx.disp.cmdDrawIndexed(data.command_buffers[i], data.index_buffer->getNumberOfElements(), 1, 0, 0, 0);
         
         ctx.disp.cmdEndRenderPass(data.command_buffers[i]);
 
@@ -530,13 +530,14 @@ void copyBuffer(VulkanContext& ctx, RenderData& data, VkBuffer srcBuffer, VkBuff
     vkFreeCommandBuffers(ctx.device.device, ctx.command_pool, 1, &commandBuffer);
 }
 
-bool create_gpu_buffer(VulkanContext& ctx, BufferType type, Buffer** buffer, const void *content, size_t buffer_size)
+bool create_gpu_buffer(VulkanContext& ctx, BufferType type, Buffer** buffer, const void *content, uint32_t number_of_elements, size_t size_per_element)
 {
+    size_t buffer_size = number_of_elements * size_per_element;
     // Creating the staging buffer
     Buffer* staging_buffer;
     try
     {
-        staging_buffer = new Buffer(BufferType::StagingBuffer, buffer_size);
+        staging_buffer = new Buffer(BufferType::StagingBuffer, number_of_elements, size_per_element);
     }
     catch(const std::runtime_error& e)
     {
@@ -546,7 +547,7 @@ bool create_gpu_buffer(VulkanContext& ctx, BufferType type, Buffer** buffer, con
     // Creating the actual buffer
     try
     {
-        *buffer = new Buffer(type, buffer_size);
+        *buffer = new Buffer(type, number_of_elements, size_per_element);
     }
     catch(const std::exception& e)
     {
@@ -758,17 +759,17 @@ bool Renderer::resize()
 
 bool Renderer::createVertexBuffer(const std::vector<Vertex> &vertices)
 {
-    size_t buffer_size = sizeof(vertices[0]) * vertices.size();;
-    return create_gpu_buffer(m_ctx, BufferType::VertexBuffer, &m_render_data.vertex_buffer, static_cast<const void*>(vertices.data()), buffer_size);
+    // size_t buffer_size = sizeof(vertices[0]) * vertices.size();;
+    return create_gpu_buffer(m_ctx, BufferType::VertexBuffer, &m_render_data.vertex_buffer, static_cast<const void*>(vertices.data()), vertices.size(), sizeof(vertices[0]));
 }
 
 bool Renderer::createIndicesBuffer(const std::vector<uint16_t> &indices)
 {
-    size_t buffer_size = sizeof(indices[0]) * indices.size();
-    return create_gpu_buffer(m_ctx, BufferType::IndiceBuffer, &m_render_data.index_buffer, static_cast<const void*>(indices.data()), buffer_size);
+    // size_t buffer_size = sizeof(indices[0]) * indices.size();
+    return create_gpu_buffer(m_ctx, BufferType::IndiceBuffer, &m_render_data.index_buffer, static_cast<const void*>(indices.data()), indices.size(), sizeof(indices[0]));
 }
 
-bool Renderer::recordCommandBuffer(const std::vector<uint16_t> &indicies)
+bool Renderer::recordCommandBuffer()
 {
-    return record_command_buffers(m_ctx, m_render_data,  m_render_data.index_buffer ,indicies.size());
+    return record_command_buffers(m_ctx, m_render_data);
 }

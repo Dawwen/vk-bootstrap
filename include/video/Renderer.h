@@ -29,7 +29,7 @@ class Renderer
 
         bool createVertexBuffer(const std::vector<Vertex>& vertices);
         bool createIndicesBuffer(const std::vector<uint16_t>& indices);
-        bool recordCommandBuffer(const std::vector<uint16_t>& indicies);
+        bool recordCommandBuffer();
 
 };
 

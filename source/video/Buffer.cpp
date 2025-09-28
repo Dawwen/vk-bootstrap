@@ -1,15 +1,17 @@
 #include "video/Buffer.h"
 #include "video/VmaUsage.h"
 
-Buffer::Buffer(BufferType type, size_t size)
+Buffer::Buffer(BufferType type, uint32_t nb_elements, size_t size_element)
 {
     VmaAllocator& allocator = getAllocator();
+    size_t buffer_size = size_element * nb_elements;
 
     m_bufferType = type;
-    m_size = size;
+    m_size = buffer_size;
+    m_number_elements = nb_elements;
 
     VkBufferCreateInfo buffer_create_info = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
-    buffer_create_info.size = size;
+    buffer_create_info.size = buffer_size;
 
     VmaAllocationCreateInfo allocation_create_info = {};
     allocation_create_info.usage = VMA_MEMORY_USAGE_AUTO;
@@ -57,6 +59,11 @@ size_t Buffer::getSize()
 VkBuffer &Buffer::getBuffer()
 {
     return m_buffer;
+}
+
+uint32_t Buffer::getNumberOfElements()
+{
+    return m_number_elements;
 }
 
 bool Buffer::copyToStagingBuffer(const void *buffer, size_t size, VkDeviceSize offset)

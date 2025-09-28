@@ -36,7 +36,7 @@ int main(int argc, char const *argv[])
     renderer.createVertexBuffer(vertices);
     renderer.createIndicesBuffer(indices);
 
-    renderer.recordCommandBuffer(indices);
+    renderer.recordCommandBuffer();
     SDL_Event event;
     while (event.type != SDL_EVENT_QUIT)
     {
@@ -44,7 +44,7 @@ int main(int argc, char const *argv[])
         if (event.type == SDL_EVENT_WINDOW_RESIZED)
         {
             renderer.resize();
-            renderer.recordCommandBuffer(indices);
+            renderer.recordCommandBuffer();
         }
         
         int res = renderer.drawFrame();
