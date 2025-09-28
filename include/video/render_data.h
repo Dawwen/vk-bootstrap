@@ -10,8 +10,9 @@ struct RenderData {
     std::vector<VkImageView> swapchain_image_views;
     std::vector<VkFramebuffer> framebuffers;
 
-    VmaAllocation vertex_buffer_allocation;
-    VkBuffer vertex_buffer;
+    Buffer* vertex_buffer = nullptr;
+    // VmaAllocation vertex_buffer_allocation;
+    // VkBuffer vertex_buffer;
 
     //TODO fix by using buffer class
     std::vector<Buffer*> uniformBuffers;

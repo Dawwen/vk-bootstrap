@@ -455,7 +455,7 @@ bool record_command_buffers(VulkanContext& ctx, RenderData& data, Buffer* index_
         ctx.disp.cmdBeginRenderPass(data.command_buffers[i], &render_pass_info, VK_SUBPASS_CONTENTS_INLINE);
 
         ctx.disp.cmdBindPipeline(data.command_buffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, data.graphics_pipeline);
-        ctx.disp.cmdBindVertexBuffers(data.command_buffers[i], 0, 1, &data.vertex_buffer, &offset);
+        ctx.disp.cmdBindVertexBuffers(data.command_buffers[i], 0, 1, &data.vertex_buffer->getBuffer(), &offset);
         ctx.disp.cmdBindIndexBuffer(data.command_buffers[i], index_buffer->getBuffer(), 0, VK_INDEX_TYPE_UINT16);
         ctx.disp.cmdDrawIndexed(data.command_buffers[i], indicesSize, 1, 0, 0, 0);
         
@@ -530,60 +530,49 @@ void copyBuffer(VulkanContext& ctx, RenderData& data, VkBuffer srcBuffer, VkBuff
     vkFreeCommandBuffers(ctx.device.device, ctx.command_pool, 1, &commandBuffer);
 }
 
-bool create_vertex_buffer(VulkanContext& ctx, RenderData& data, VmaAllocator& allocator, const std::vector<Vertex>& vertices)
+bool create_gpu_buffer(VulkanContext& ctx, BufferType type, Buffer** buffer, const void *content, size_t buffer_size)
 {
-    size_t buffer_size = sizeof(vertices[0]) * vertices.size();
-
-    VkBufferCreateInfo buffer_create_info = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
-    buffer_create_info.size = buffer_size;
-    buffer_create_info.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;//VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
-
-    VmaAllocationCreateInfo staging_allocation_create_info = {};
-    staging_allocation_create_info.usage = VMA_MEMORY_USAGE_AUTO;
-    staging_allocation_create_info.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT;
-
-    VkBuffer staging_buffer;
-    VmaAllocation staging_allocation;
-    VmaAllocationInfo allocation_info;
-
-    // Staging buffer
-    auto result = vmaCreateBuffer(allocator, &buffer_create_info, &staging_allocation_create_info, &staging_buffer, &staging_allocation, &allocation_info);
-    if (result != VK_SUCCESS)
+    // Creating the staging buffer
+    Buffer* staging_buffer;
+    try
     {
-        SDL_LogError(SDL_LOG_CATEGORY_VIDEO, "failed to create staging buffer");
-        return true;
+        staging_buffer = new Buffer(BufferType::StagingBuffer, buffer_size);
     }
-    
-    vmaCopyMemoryToAllocation(allocator, vertices.data(), staging_allocation, 0, buffer_size);
-
-    buffer_create_info.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
-
-    VmaAllocationCreateInfo vertex_allocation_create_info = {};
-    vertex_allocation_create_info.usage = VMA_MEMORY_USAGE_AUTO;
-    vertex_allocation_create_info.flags  = 0;
-
-    vmaCreateBuffer(allocator, &buffer_create_info, &vertex_allocation_create_info, &data.vertex_buffer, &data.vertex_buffer_allocation, nullptr);
-    
-    copyBuffer(ctx, data, staging_buffer, data.vertex_buffer, buffer_size);
-
-    vmaDestroyBuffer(allocator, staging_buffer, staging_allocation);
-    return false;
-}
-
-
-bool create_indices_buffer(VulkanContext& ctx, RenderData& data, Buffer** index_buffer, const std::vector<uint16_t>& indices)
-{
-    size_t buffer_size = sizeof(indices[0]) * indices.size();
-
-    Buffer staging_buffer {BufferType::StagingBuffer, buffer_size};
-    *index_buffer = new Buffer(BufferType::IndiceBuffer, buffer_size);
-
-    staging_buffer.copyToStagingBuffer(indices.data(), buffer_size);
-
-    if (Buffer::copyTo(ctx, staging_buffer, **index_buffer))
+    catch(const std::runtime_error& e)
     {
         return true;
     }
+ 
+    // Creating the actual buffer
+    try
+    {
+        *buffer = new Buffer(type, buffer_size);
+    }
+    catch(const std::exception& e)
+    {
+        delete staging_buffer;
+        return true;
+    }
+
+    // Copying it to staging buffer
+    if (staging_buffer->copyToStagingBuffer(content, buffer_size))
+    {
+        delete *buffer;
+        delete staging_buffer;
+        buffer = nullptr;
+        return true;
+    }
+
+    // Copying it to GPU buffer
+    if (Buffer::copyTo(ctx, *staging_buffer, **buffer))
+    {
+        delete *buffer;
+        delete staging_buffer;
+        buffer = nullptr;
+        return true;
+    }
+
+    delete staging_buffer;
 
     return false;
 }
@@ -714,8 +703,7 @@ void cleanup(VulkanContext& ctx, RenderData& data)
 
     ctx.swapchain.destroy_image_views(data.swapchain_image_views);
 
-    vmaDestroyBuffer(allocator, data.vertex_buffer, data.vertex_buffer_allocation);
-    // vmaDestroyBuffer(allocator, ctx.indices_buffer, ctx.indices_buffer_allocation);
+    delete data.vertex_buffer;
 
     vkb::destroy_swapchain(ctx.swapchain);
     destroyAllocator();
@@ -770,12 +758,14 @@ bool Renderer::resize()
 
 bool Renderer::createVertexBuffer(const std::vector<Vertex> &vertices)
 {
-    return create_vertex_buffer(m_ctx, m_render_data, getAllocator(), vertices);
+    size_t buffer_size = sizeof(vertices[0]) * vertices.size();;
+    return create_gpu_buffer(m_ctx, BufferType::VertexBuffer, &m_render_data.vertex_buffer, static_cast<const void*>(vertices.data()), buffer_size);
 }
 
 bool Renderer::createIndicesBuffer(const std::vector<uint16_t> &indices)
 {
-    return create_indices_buffer(m_ctx, m_render_data, &m_index_buffer, indices);
+    size_t buffer_size = sizeof(indices[0]) * indices.size();
+    return create_gpu_buffer(m_ctx, BufferType::IndiceBuffer, &m_index_buffer, static_cast<const void*>(indices.data()), buffer_size);
 }
 
 bool Renderer::recordCommandBuffer(const std::vector<uint16_t> &indicies)

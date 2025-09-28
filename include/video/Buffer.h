@@ -25,7 +25,7 @@ class Buffer
         
 
     public:
-        Buffer(BufferType type, uint32_t size);
+        Buffer(BufferType type, size_t size);
         ~Buffer();
 
         size_t getSize();

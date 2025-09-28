@@ -1,7 +1,7 @@
 #include "video/Buffer.h"
 #include "video/VmaUsage.h"
 
-Buffer::Buffer(BufferType type, uint32_t size)
+Buffer::Buffer(BufferType type, size_t size)
 {
     VmaAllocator& allocator = getAllocator();
 
@@ -39,6 +39,7 @@ Buffer::Buffer(BufferType type, uint32_t size)
     if (result != VK_SUCCESS)
     {
         SDL_LogError(SDL_LOG_CATEGORY_VIDEO, "failed to create buffer");
+        throw std::runtime_error("failed to create buffer");
     }
 }
 
