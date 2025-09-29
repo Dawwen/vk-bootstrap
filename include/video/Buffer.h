@@ -7,6 +7,7 @@
 
 enum BufferType
 {
+    UniformBuffer,
     StagingBuffer,
     VertexBuffer,
     IndiceBuffer,

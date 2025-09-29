@@ -13,12 +13,13 @@ struct RenderData {
     Buffer* vertex_buffer = nullptr;
     Buffer* index_buffer  = nullptr;
 
-    //TODO fix by using buffer class
+    VkDescriptorPool descriptor_pool;
+    VkDescriptorSetLayout descriptor_set_layout;
+    VkPipelineLayout pipeline_layout;
+    std::vector<VkDescriptorSet> descriptor_sets;
     std::vector<Buffer*> uniformBuffers;
 
     VkRenderPass render_pass;
-    VkDescriptorSetLayout descriptorSetLayout;
-    VkPipelineLayout pipeline_layout;
     VkPipeline graphics_pipeline;
 
     std::vector<VkCommandBuffer> command_buffers;

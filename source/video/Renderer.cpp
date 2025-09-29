@@ -1,6 +1,7 @@
 #include "video/Renderer.h"
 
 #include <fstream>
+#include <iostream>
 
 #include "video/Renderer.h"
 #include "video/Buffer.h"
@@ -8,7 +9,7 @@
 #include "video/VmaUsage.h"
 
 
-const int MAX_FRAMES_IN_FLIGHT = 3;
+const int MAX_FRAMES_IN_FLIGHT = 4;
 #define SHADER_FOLDER "../shaders/"
 
 // Util function
@@ -124,6 +125,89 @@ bool create_swapchain(VulkanContext& ctx, uint32_t width, uint32_t height)
     }
     vkb::destroy_swapchain(ctx.swapchain);
     ctx.swapchain = swap_ret.value();
+    return false;
+}
+
+bool create_descriptor_set_layout(VulkanContext& ctx, RenderData& data)
+{
+    VkDescriptorSetLayoutBinding uboLayoutBinding{};
+    uboLayoutBinding.binding = 0;
+    uboLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    uboLayoutBinding.descriptorCount = 1;
+    uboLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+    uboLayoutBinding.pImmutableSamplers = nullptr; // Optional
+
+    VkDescriptorSetLayoutCreateInfo layoutInfo{};
+    layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+    layoutInfo.bindingCount = 1;
+    layoutInfo.pBindings = &uboLayoutBinding;
+
+    if (ctx.disp.createDescriptorSetLayout(&layoutInfo, nullptr, &data.descriptor_set_layout) != VK_SUCCESS)
+    {
+        throw std::runtime_error("failed to create descriptor set layout!");
+    }
+
+    return false;
+}
+
+bool create_descriptor_pool(VulkanContext& ctx, RenderData& data)
+{
+    std::cout << "MAX_FRAMES_IN_FLIGHT: " << MAX_FRAMES_IN_FLIGHT << std::endl;
+    VkDescriptorPoolSize poolSize{};
+    poolSize.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    poolSize.descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
+
+    VkDescriptorPoolCreateInfo poolInfo{};
+    poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+    poolInfo.poolSizeCount = 1;
+    poolInfo.pPoolSizes = &poolSize;
+    poolInfo.maxSets = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
+    poolInfo.flags = 0;
+
+    if (ctx.disp.createDescriptorPool(&poolInfo, nullptr, &data.descriptor_pool) != VK_SUCCESS)
+    {
+        throw std::runtime_error("failed to create descriptor pool!");
+    }
+
+    std::cout << "END MAX_FRAMES_IN_FLIGHT: " << MAX_FRAMES_IN_FLIGHT << std::endl;
+
+    return false;
+}
+
+bool create_descriptor_sets(VulkanContext& ctx, RenderData& data)
+{
+    std::vector<VkDescriptorSetLayout> layouts(MAX_FRAMES_IN_FLIGHT, data.descriptor_set_layout);
+    VkDescriptorSetAllocateInfo allocInfo{};
+    allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+    allocInfo.descriptorPool = data.descriptor_pool;
+    allocInfo.descriptorSetCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
+    allocInfo.pSetLayouts = layouts.data();
+
+    data.descriptor_sets.resize(MAX_FRAMES_IN_FLIGHT);
+    if (ctx.disp.allocateDescriptorSets(&allocInfo, data.descriptor_sets.data()) != VK_SUCCESS) {
+        throw std::runtime_error("failed to allocate descriptor sets!");
+    }
+
+    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+    {
+        VkDescriptorBufferInfo bufferInfo{};
+        bufferInfo.buffer = data.uniformBuffers[i]->getBuffer();
+        bufferInfo.offset = 0;
+        bufferInfo.range = sizeof(UniformBufferObject);
+
+        VkWriteDescriptorSet descriptorWrite{};
+        descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        descriptorWrite.dstSet = data.descriptor_sets[i];
+        descriptorWrite.dstBinding = 0;
+        descriptorWrite.dstArrayElement = 0;
+        descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        descriptorWrite.descriptorCount = 1;
+        descriptorWrite.pBufferInfo = &bufferInfo;
+        descriptorWrite.pImageInfo = nullptr; // Optional
+        descriptorWrite.pTexelBufferView = nullptr; // Optional
+
+        ctx.disp.updateDescriptorSets(1, &descriptorWrite, 0, nullptr);
+    }
     return false;
 }
 
@@ -314,7 +398,8 @@ bool create_graphics_pipeline(VulkanContext& ctx, RenderData& data)
 
     VkPipelineLayoutCreateInfo pipeline_layout_info = {};
     pipeline_layout_info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-    pipeline_layout_info.setLayoutCount = 0;
+    pipeline_layout_info.setLayoutCount = 1;
+    pipeline_layout_info.pSetLayouts = &data.descriptor_set_layout;
     pipeline_layout_info.pushConstantRangeCount = 0;
 
     if (ctx.disp.createPipelineLayout(&pipeline_layout_info, nullptr, &data.pipeline_layout) != VK_SUCCESS)
@@ -361,6 +446,7 @@ bool create_framebuffers(VulkanContext& ctx, RenderData& data)
 {
     data.swapchain_images = ctx.swapchain.get_images().value();
     data.swapchain_image_views = ctx.swapchain.get_image_views().value();
+    SDL_LogError(SDL_LOG_CATEGORY_VIDEO, "Number of FRAME Buffer %d", data.swapchain_image_views.size());
     data.framebuffers.resize(data.swapchain_image_views.size());
 
     for (size_t i = 0; i < data.swapchain_image_views.size(); i++)
@@ -414,6 +500,7 @@ bool record_command_buffers(VulkanContext& ctx, RenderData& data)
         SDL_LogError(SDL_LOG_CATEGORY_VIDEO, "failed to allocate command buffers");
         return true;
     }
+    SDL_LogError(SDL_LOG_CATEGORY_VIDEO, "Number of Command Buffer %d", data.command_buffers.size());
 
     for (size_t i = 0; i < data.command_buffers.size(); i++)
     {
@@ -457,6 +544,9 @@ bool record_command_buffers(VulkanContext& ctx, RenderData& data)
         ctx.disp.cmdBindPipeline(data.command_buffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, data.graphics_pipeline);
         ctx.disp.cmdBindVertexBuffers(data.command_buffers[i], 0, 1, &data.vertex_buffer->getBuffer(), &offset);
         ctx.disp.cmdBindIndexBuffer(data.command_buffers[i], data.index_buffer->getBuffer(), 0, VK_INDEX_TYPE_UINT16);
+        SDL_LogError(SDL_LOG_CATEGORY_VIDEO, "BEFORE BIND %d", i);
+        ctx.disp.cmdBindDescriptorSets(data.command_buffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, data.pipeline_layout, 0, 1, &data.descriptor_sets[i], 0, nullptr);
+        SDL_LogError(SDL_LOG_CATEGORY_VIDEO, "AFTER BIND %d", i);
         ctx.disp.cmdDrawIndexed(data.command_buffers[i], data.index_buffer->getNumberOfElements(), 1, 0, 0, 0);
         
         ctx.disp.cmdEndRenderPass(data.command_buffers[i]);
@@ -708,6 +798,15 @@ void cleanup(VulkanContext& ctx, RenderData& data)
     delete data.index_buffer;
 
     vkb::destroy_swapchain(ctx.swapchain);
+
+    for (auto ub : data.uniformBuffers)
+    {
+        delete ub;
+    }
+
+    ctx.disp.destroyDescriptorPool(data.descriptor_pool, nullptr);
+    ctx.disp.destroyDescriptorSetLayout(data.descriptor_set_layout, nullptr);
+
     destroyAllocator();
     vkb::destroy_device(ctx.device);
     vkb::destroy_surface(ctx.instance, ctx.surface);
@@ -735,19 +834,33 @@ bool Renderer::init(uint32_t width, uint32_t height)
     // Force allocator creation
     createAllocator(m_ctx);
 
-    if (create_swapchain           (m_ctx, width, height))     return true;
-    if (get_queues                 (m_ctx, m_render_data))     return true;
-    if (create_render_pass         (m_ctx, m_render_data))     return true;
-    if (create_graphics_pipeline   (m_ctx, m_render_data))     return true;
-    if (create_framebuffers        (m_ctx, m_render_data))     return true;
-    if (create_command_pool        (m_ctx, m_render_data))     return true;
-    if (create_sync_objects        (m_ctx, m_render_data))     return true;
+    if (create_swapchain            (m_ctx, width, height))     return true;
+    if (get_queues                  (m_ctx, m_render_data))     return true;
+    if (create_render_pass          (m_ctx, m_render_data))     return true;
+    if (create_descriptor_set_layout(m_ctx, m_render_data))     return true;
+    
+    if (createUniformBuffers(sizeof(UniformBufferObject)))      return true;
+    
+    if (create_descriptor_pool      (m_ctx, m_render_data))     return true;
+    if (create_descriptor_sets      (m_ctx, m_render_data))     return true;
+    if (create_graphics_pipeline    (m_ctx, m_render_data))     return true;
+    if (create_framebuffers         (m_ctx, m_render_data))     return true;
+    if (create_command_pool         (m_ctx, m_render_data))     return true;
+    if (create_sync_objects         (m_ctx, m_render_data))     return true;
     return false;
 }
 
 bool Renderer::drawFrame()
 {
     return draw_frame(m_ctx, m_render_data); //TODO fixme
+}
+
+bool Renderer::updateUniformBuffer(const UniformBufferObject& ubo)
+{
+    void* data;
+    Buffer* uniformBuffer = m_render_data.uniformBuffers[m_render_data.current_frame];
+    uniformBuffer->copyToStagingBuffer(&ubo, sizeof(ubo));
+    return false;
 }
 
 bool Renderer::resize()
@@ -768,6 +881,17 @@ bool Renderer::createIndicesBuffer(const std::vector<uint16_t> &indices)
     // size_t buffer_size = sizeof(indices[0]) * indices.size();
     return create_gpu_buffer(m_ctx, BufferType::IndiceBuffer, &m_render_data.index_buffer, static_cast<const void*>(indices.data()), indices.size(), sizeof(indices[0]));
 }
+
+bool Renderer::createUniformBuffers(size_t buffer_size)
+{
+    m_render_data.uniformBuffers.resize(MAX_FRAMES_IN_FLIGHT);
+    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+    {
+        m_render_data.uniformBuffers[i] = new Buffer(BufferType::UniformBuffer, 1, buffer_size);
+    }
+    return false;
+}
+
 
 bool Renderer::recordCommandBuffer()
 {

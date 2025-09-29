@@ -13,6 +13,7 @@
 #include "video/render_data.h"
 #include "video/Vertex.h"
 #include "video/Buffer.h"
+#include "video/UniformBuffer.h"
 
 class Renderer
 {
@@ -29,6 +30,9 @@ class Renderer
 
         bool createVertexBuffer(const std::vector<Vertex>& vertices);
         bool createIndicesBuffer(const std::vector<uint16_t>& indices);
+        bool createUniformBuffers(size_t buffer_size);
+        bool updateUniformBuffer(const UniformBufferObject& ubo);
+
         bool recordCommandBuffer();
 
 };
