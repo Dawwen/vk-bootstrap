@@ -1,6 +1,9 @@
 #define SDL_MAIN_USE_CALLBACKS 1  /* use the callbacks instead of main() */
 #include <SDL3/SDL.h>
 
+#include "imgui.h"
+#include "backends/imgui_impl_sdl3.h"
+
 #include <chrono>
 #include <vector>
 #include <iostream>
@@ -9,8 +12,8 @@
 #include "video/Vertex.h"
 #include "video/UniformBuffer.h"
 
-const uint32_t SCREEN_WIDTH = 120;
-const uint32_t SCREEN_HEIGHT = 120;
+const uint32_t SCREEN_WIDTH = 800;
+const uint32_t SCREEN_HEIGHT = 600;
 
 
 const std::vector<Vertex> vertices = {
@@ -32,16 +35,17 @@ void calculateNewUniformBuffer(UniformBufferObject& ubo, uint32_t width, uint32_
     float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
 
     ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+    ubo.model = ubo.model * glm::mat4(glm::mat3(0.5f + time* 0.1f));
     ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
     ubo.proj = glm::perspective(glm::radians(45.0f), width / (float) height, 0.1f, 10.0f);
-    ubo.proj[1][1] *= -1;
+    // ubo.proj[1][1] *= -1;
 }
 
 int main(int argc, char const *argv[])
 {
     Renderer renderer;
     UniformBufferObject ubo = {};
-    ubo.model = glm::mat4(1.0f);
+    ubo.model = glm::mat4(glm::mat3(0.3f));
     ubo.view = glm::mat4(1.0f);
     ubo.proj = glm::mat4(1.0f);
 
@@ -54,17 +58,28 @@ int main(int argc, char const *argv[])
     renderer.createVertexBuffer(vertices);
     renderer.createIndicesBuffer(indices);
 
-    renderer.recordCommandBuffer();
     SDL_Event event;
     while (event.type != SDL_EVENT_QUIT)
     {
         SDL_PollEvent(&event);
+        ImGui_ImplSDL3_ProcessEvent(&event); // Forward your event to backend
+        
         if (event.type == SDL_EVENT_WINDOW_RESIZED)
         {
             renderer.resize();
-            renderer.recordCommandBuffer();
         }
-        // calculateNewUniformBuffer(ubo, SCREEN_WIDTH, SCREEN_HEIGHT);
+        calculateNewUniformBuffer(ubo, SCREEN_WIDTH, SCREEN_HEIGHT);
+        // (After event loop)
+        // Start the Dear ImGui frame
+        ImGui_ImplVulkan_NewFrame();
+        ImGui_ImplSDL3_NewFrame();
+        ImGui::NewFrame();
+
+        ImGui::ShowDemoWindow(); // Show demo window! :)
+        
+        // Render ImGui
+        ImGui::Render();
+        
         renderer.updateUniformBuffer(ubo);
         int res = renderer.drawFrame();
         if (res != 0)

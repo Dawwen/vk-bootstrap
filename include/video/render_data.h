@@ -13,6 +13,7 @@ struct RenderData {
     Buffer* vertex_buffer = nullptr;
     Buffer* index_buffer  = nullptr;
 
+    VkDescriptorPool descriptor_pool_imGui;
     VkDescriptorPool descriptor_pool;
     VkDescriptorSetLayout descriptor_set_layout;
     VkPipelineLayout pipeline_layout;

@@ -34,6 +34,15 @@ std::vector<char> readFile(const std::string& filename)
     return buffer;
 }
 
+static void check_vk_result(VkResult err)
+{
+    if (err == 0)
+        return;
+    fprintf(stderr, "[vulkan] Error: VkResult = %d\n", err);
+    if (err < 0)
+        abort();
+}
+
 // SDL functions
 
 SDL_Window* create_window(const char* window_name, uint32_t width, uint32_t height, bool resize = true) {
@@ -152,7 +161,6 @@ bool create_descriptor_set_layout(VulkanContext& ctx, RenderData& data)
 
 bool create_descriptor_pool(VulkanContext& ctx, RenderData& data)
 {
-    std::cout << "MAX_FRAMES_IN_FLIGHT: " << MAX_FRAMES_IN_FLIGHT << std::endl;
     VkDescriptorPoolSize poolSize{};
     poolSize.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     poolSize.descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
@@ -169,7 +177,32 @@ bool create_descriptor_pool(VulkanContext& ctx, RenderData& data)
         throw std::runtime_error("failed to create descriptor pool!");
     }
 
-    std::cout << "END MAX_FRAMES_IN_FLIGHT: " << MAX_FRAMES_IN_FLIGHT << std::endl;
+    // Create ImGui descriptor pool
+    VkDescriptorPoolSize poolSizes_imGui[] = {
+        { VK_DESCRIPTOR_TYPE_SAMPLER, 1000 },
+        { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1000 },
+        { VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1000 },
+        { VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1000 },
+        { VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, 1000 },
+        { VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER, 1000 },
+        { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1000 },
+        { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1000 },
+        { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1000 },
+        { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, 1000 },
+        { VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 1000 }
+    };
+
+    VkDescriptorPoolCreateInfo poolInfo_imGui{};
+    poolInfo_imGui.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+    poolInfo_imGui.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
+    poolInfo_imGui.maxSets = 1000 * IM_ARRAYSIZE(poolSizes_imGui);
+    poolInfo_imGui.poolSizeCount = (uint32_t)IM_ARRAYSIZE(poolSizes_imGui);
+    poolInfo_imGui.pPoolSizes = poolSizes_imGui;
+
+    if (ctx.disp.createDescriptorPool(&poolInfo_imGui, nullptr, &data.descriptor_pool_imGui) != VK_SUCCESS)
+    {
+        throw std::runtime_error("failed to create ImGui descriptor pool!");
+    }
 
     return false;
 }
@@ -475,6 +508,7 @@ bool create_command_pool(VulkanContext& ctx, RenderData& data)
 {
     VkCommandPoolCreateInfo pool_info = {};
     pool_info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+    pool_info.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
     pool_info.queueFamilyIndex = ctx.device.get_queue_index(vkb::QueueType::graphics).value();
 
     if (ctx.disp.createCommandPool(&pool_info, nullptr, &ctx.command_pool) != VK_SUCCESS)\
@@ -686,7 +720,21 @@ bool recreate_swapchain(VulkanContext& ctx, RenderData& data, uint32_t width, ui
     if (create_swapchain(ctx, width, height))  return true;
     if (create_framebuffers(ctx, data))        return true;
     if (create_command_pool(ctx, data))        return true;
-    // if (record_command_buffers(ctx, data, m_index_buffer, 6))  return true; //TODO FIX
+    
+    // Allocate command buffers for the new swapchain
+    data.command_buffers.resize(data.framebuffers.size());
+    VkCommandBufferAllocateInfo allocInfo = {};
+    allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    allocInfo.commandPool = ctx.command_pool;
+    allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    allocInfo.commandBufferCount = (uint32_t)data.command_buffers.size();
+
+    if (ctx.disp.allocateCommandBuffers(&allocInfo, data.command_buffers.data()) != VK_SUCCESS)
+    {
+        SDL_LogError(SDL_LOG_CATEGORY_VIDEO, "failed to allocate command buffers during swapchain recreation");
+        return true;
+    }
+    
     return false;
 }
 
@@ -716,6 +764,65 @@ int draw_frame(VulkanContext& ctx, RenderData& data)
     }
     data.image_in_flight[image_index] = data.in_flight_fences[data.current_frame];
 
+    // Record command buffer dynamically for this frame
+    VkCommandBuffer commandBuffer = data.command_buffers[image_index];
+    
+    VkCommandBufferBeginInfo begin_info = {};
+    begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+
+    if (ctx.disp.beginCommandBuffer(commandBuffer, &begin_info) != VK_SUCCESS)
+    {
+        SDL_LogError(SDL_LOG_CATEGORY_VIDEO, "failed to begin recording command buffer");
+        return true;
+    }
+
+    VkRenderPassBeginInfo render_pass_info = {};
+    render_pass_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+    render_pass_info.renderPass = data.render_pass;
+    render_pass_info.framebuffer = data.framebuffers[image_index];
+    render_pass_info.renderArea.offset = { 0, 0 };
+    render_pass_info.renderArea.extent = ctx.swapchain.extent;
+    VkClearValue clearColor{ { { 0.0f, 0.0f, 0.0f, 1.0f } } };
+    render_pass_info.clearValueCount = 1;
+    render_pass_info.pClearValues = &clearColor;
+
+    VkViewport viewport = {};
+    viewport.x = 0.0f;
+    viewport.y = 0.0f;
+    viewport.width = (float)ctx.swapchain.extent.width;
+    viewport.height = (float)ctx.swapchain.extent.height;
+    viewport.minDepth = 0.0f;
+    viewport.maxDepth = 1.0f;
+
+    VkRect2D scissor = {};
+    scissor.offset = { 0, 0 };
+    scissor.extent = ctx.swapchain.extent;
+
+    ctx.disp.cmdSetViewport(commandBuffer, 0, 1, &viewport);
+    ctx.disp.cmdSetScissor(commandBuffer, 0, 1, &scissor);
+
+    VkDeviceSize offset = 0;
+    ctx.disp.cmdBeginRenderPass(commandBuffer, &render_pass_info, VK_SUBPASS_CONTENTS_INLINE);
+
+    // Render your triangle
+    ctx.disp.cmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, data.graphics_pipeline);
+    ctx.disp.cmdBindVertexBuffers(commandBuffer, 0, 1, &data.vertex_buffer->getBuffer(), &offset);
+    ctx.disp.cmdBindIndexBuffer(commandBuffer, data.index_buffer->getBuffer(), 0, VK_INDEX_TYPE_UINT16);
+    ctx.disp.cmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, data.pipeline_layout, 0, 1, &data.descriptor_sets[data.current_frame], 0, nullptr);
+    ctx.disp.cmdDrawIndexed(commandBuffer, data.index_buffer->getNumberOfElements(), 1, 0, 0, 0);
+    
+    // Render ImGui
+    ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), commandBuffer);
+    
+    ctx.disp.cmdEndRenderPass(commandBuffer);
+
+    if (ctx.disp.endCommandBuffer(commandBuffer) != VK_SUCCESS)
+    {
+        SDL_LogError(SDL_LOG_CATEGORY_VIDEO, "failed to record command buffer");
+        return true;
+    }
+
     VkSubmitInfo submitInfo = {};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 
@@ -726,7 +833,7 @@ int draw_frame(VulkanContext& ctx, RenderData& data)
     submitInfo.pWaitDstStageMask = wait_stages;
 
     submitInfo.commandBufferCount = 1;
-    submitInfo.pCommandBuffers = &data.command_buffers[image_index];
+    submitInfo.pCommandBuffers = &commandBuffer;
 
     VkSemaphore signal_semaphores[] = { data.finished_semaphore[data.current_frame] };
     submitInfo.signalSemaphoreCount = 1;
@@ -774,6 +881,11 @@ void cleanup(VulkanContext& ctx, RenderData& data)
 {
     VmaAllocator& allocator = getAllocator(); 
 
+    // Cleanup ImGui
+    ImGui_ImplVulkan_Shutdown();
+    ImGui_ImplSDL3_Shutdown();
+    ImGui::DestroyContext();
+
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
         ctx.disp.destroySemaphore(data.finished_semaphore[i], nullptr);
@@ -805,6 +917,7 @@ void cleanup(VulkanContext& ctx, RenderData& data)
     }
 
     ctx.disp.destroyDescriptorPool(data.descriptor_pool, nullptr);
+    ctx.disp.destroyDescriptorPool(data.descriptor_pool_imGui, nullptr);
     ctx.disp.destroyDescriptorSetLayout(data.descriptor_set_layout, nullptr);
 
     destroyAllocator();
@@ -847,6 +960,59 @@ bool Renderer::init(uint32_t width, uint32_t height)
     if (create_framebuffers         (m_ctx, m_render_data))     return true;
     if (create_command_pool         (m_ctx, m_render_data))     return true;
     if (create_sync_objects         (m_ctx, m_render_data))     return true;
+
+    // Allocate command buffers
+    m_render_data.command_buffers.resize(m_render_data.framebuffers.size());
+    VkCommandBufferAllocateInfo allocInfo = {};
+    allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    allocInfo.commandPool = m_ctx.command_pool;
+    allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    allocInfo.commandBufferCount = (uint32_t)m_render_data.command_buffers.size();
+
+    if (m_ctx.disp.allocateCommandBuffers(&allocInfo, m_render_data.command_buffers.data()) != VK_SUCCESS)
+    {
+        SDL_LogError(SDL_LOG_CATEGORY_VIDEO, "failed to allocate command buffers");
+        return true;
+    }
+
+    // Setup Dear ImGui context
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    ImGuiIO& io = ImGui::GetIO();
+    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
+    io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
+
+    // Setup Dear ImGui style
+    ImGui::StyleColorsDark();
+    //ImGui::StyleColorsLight();
+
+    // Setup scaling
+    ImGuiStyle& style = ImGui::GetStyle();
+    float main_scale = 1.0;
+    style.ScaleAllSizes(main_scale);        // Bake a fixed style scale. (until we have a solution for dynamic style scaling, changing this requires resetting Style + calling this again)
+    style.FontScaleDpi = main_scale;        // Set initial font scale. (using io.ConfigDpiScaleFonts=true makes this unnecessary. We leave both here for documentation purpose)
+
+    // Setup Platform/Renderer backends
+    ImGui_ImplSDL3_InitForVulkan(m_ctx.window);
+    
+    ImGui_ImplVulkan_InitInfo init_info = {};
+    init_info.Instance = m_ctx.instance.instance;
+    init_info.PhysicalDevice = m_ctx.device.physical_device.physical_device;
+    init_info.Device = m_ctx.device.device;
+    init_info.QueueFamily = m_ctx.device.get_queue_index(vkb::QueueType::graphics).value();
+    init_info.Queue = m_ctx.graphics_queue;
+    init_info.PipelineCache = VK_NULL_HANDLE;
+    init_info.DescriptorPool = m_render_data.descriptor_pool_imGui;
+    init_info.RenderPass = m_render_data.render_pass;
+    init_info.Subpass = 0;
+    init_info.MinImageCount = m_ctx.swapchain.image_count;
+    init_info.ImageCount = m_ctx.swapchain.image_count;
+    init_info.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
+    init_info.Allocator = nullptr;
+    init_info.CheckVkResultFn = check_vk_result;
+    
+    ImGui_ImplVulkan_Init(&init_info);
+
     return false;
 }
 

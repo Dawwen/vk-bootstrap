@@ -7,6 +7,10 @@
 
 #include <vk_mem_alloc.h>
 
+#include "imgui.h"
+#include "backends/imgui_impl_sdl3.h"
+#include "backends/imgui_impl_vulkan.h"
+
 #include <vector>
 
 #include "video/renderer_struct.h"

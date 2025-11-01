@@ -53,7 +53,7 @@ else()
     message(STATUS "Using local SDL3")
 endif()
 
-include_dependency(fetch_vk_bootstrap https://github.com/charles-lunarg/vk-bootstrap ffa964552f8bdf2c41e8e9a81a80637c39dd7afc)
+include_dependency(fetch_vk_bootstrap https://github.com/charles-lunarg/vk-bootstrap 2e7c8e8323c0fe7efc96dc241610fcba35d8f530)
 
 include_dependency(fetch_vma https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator 1d8f600fd424278486eade7ed3e877c99f0846b1)
 
