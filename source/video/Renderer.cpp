@@ -479,7 +479,6 @@ bool create_framebuffers(VulkanContext& ctx, RenderData& data)
 {
     data.swapchain_images = ctx.swapchain.get_images().value();
     data.swapchain_image_views = ctx.swapchain.get_image_views().value();
-    SDL_LogError(SDL_LOG_CATEGORY_VIDEO, "Number of FRAME Buffer %d", data.swapchain_image_views.size());
     data.framebuffers.resize(data.swapchain_image_views.size());
 
     for (size_t i = 0; i < data.swapchain_image_views.size(); i++)
@@ -783,7 +782,7 @@ int draw_frame(VulkanContext& ctx, RenderData& data)
     render_pass_info.framebuffer = data.framebuffers[image_index];
     render_pass_info.renderArea.offset = { 0, 0 };
     render_pass_info.renderArea.extent = ctx.swapchain.extent;
-    VkClearValue clearColor{ { { 0.0f, 0.0f, 0.0f, 1.0f } } };
+    VkClearValue clearColor{ { { 0.0f, 1.0f, 1.0f, 1.0f } } };
     render_pass_info.clearValueCount = 1;
     render_pass_info.pClearValues = &clearColor;
 
@@ -1062,4 +1061,25 @@ bool Renderer::createUniformBuffers(size_t buffer_size)
 bool Renderer::recordCommandBuffer()
 {
     return record_command_buffers(m_ctx, m_render_data);
+}
+
+bool Renderer::renderTileSet(VkImage texture, TileMap& map, TileMap& tileset, TilePalet& palet)
+{
+    VkImageCreateInfo imageInfo{};
+    imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+    imageInfo.imageType = VK_IMAGE_TYPE_2D;
+    imageInfo.extent.width = static_cast<uint32_t>(map.getWidth());
+    imageInfo.extent.height = static_cast<uint32_t>(map.getHeight());
+    imageInfo.extent.depth = 1;
+    imageInfo.mipLevels = 1;
+    imageInfo.arrayLayers = 1;
+    imageInfo.format = VK_FORMAT_R8G8B8A8_SRGB;
+    imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+    imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    imageInfo.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+    imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+    imageInfo.flags = 0; // Optional
+    // vmaCreateImage(getAllocator(), &imageInfo, )
+    return true;
 }

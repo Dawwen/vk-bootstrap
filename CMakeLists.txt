@@ -24,6 +24,9 @@ add_executable(MyExample
                     thirdparty/imgui/backends/imgui_impl_sdl3.cpp
                     thirdparty/imgui/backends/imgui_impl_vulkan.cpp
 
+                    source/resource/TileMap.cpp
+                    source/resource/TilePalet.cpp
+
                     source/video/Renderer.cpp
                     source/video/VmaUsage.cpp
                     source/video/Buffer.cpp

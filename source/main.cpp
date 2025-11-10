@@ -8,6 +8,9 @@
 #include <vector>
 #include <iostream>
 
+#include "resource/TileMap.h"
+#include "resource/TilePalet.h"
+
 #include "video/Renderer.h"
 #include "video/Vertex.h"
 #include "video/UniformBuffer.h"
@@ -27,7 +30,7 @@ const std::vector<uint16_t> indices = {
     0, 1, 2, 2, 3, 0
 };
 
-void calculateNewUniformBuffer(UniformBufferObject& ubo, uint32_t width, uint32_t height)
+void calculateNewUniformBuffer(UniformBufferObject& ubo, uint32_t width, uint32_t height, float scale)
 {
     static auto startTime = std::chrono::high_resolution_clock::now();
 
@@ -35,7 +38,7 @@ void calculateNewUniformBuffer(UniformBufferObject& ubo, uint32_t width, uint32_
     float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
 
     ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-    ubo.model = ubo.model * glm::mat4(glm::mat3(0.5f + time* 0.1f));
+    ubo.model = ubo.model * glm::mat4(glm::mat3(/*0.5f + time* 0.1f*/ scale));
     ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
     ubo.proj = glm::perspective(glm::radians(45.0f), width / (float) height, 0.1f, 10.0f);
     // ubo.proj[1][1] *= -1;
@@ -58,9 +61,49 @@ int main(int argc, char const *argv[])
     renderer.createVertexBuffer(vertices);
     renderer.createIndicesBuffer(indices);
 
+    bool my_tool_active;
+    float scale = 1.0;
+
+    auto lastTime = std::chrono::high_resolution_clock::now();
+    auto currentTime = std::chrono::high_resolution_clock::now();
+    float deltaTime;
+
+    TilePalet palet;
+    TileColor color;
+    color.color = 0;
+    color.r = 0xFF;
+
+    palet.addColor(color);
+    color.b = 0xFF;
+    palet.addColor(color);
+
+    TileMap tileset {16, 8};
+    for (size_t i = 0; i < 8; i++)
+    {
+        for (size_t j = 0; j < 16; j++)
+        {
+            tileset.set(j, i, j + i%2 + j/8);
+        }
+    }
+    tileset.updateBuffer();
+
+    TileMap tilemap {16, 16};
+    for (size_t i = 0; i < 16; i++)
+    {
+        for (size_t j = 0; j < 16; j++)
+        {
+            tilemap.set(j, i, j + i%2);
+        }
+    }
+    tilemap.updateBuffer();
+    
+    VkImage texture;
     SDL_Event event;
     while (event.type != SDL_EVENT_QUIT)
     {
+        currentTime = std::chrono::high_resolution_clock::now();
+        deltaTime = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - lastTime).count();
+
         SDL_PollEvent(&event);
         ImGui_ImplSDL3_ProcessEvent(&event); // Forward your event to backend
         
@@ -68,25 +111,55 @@ int main(int argc, char const *argv[])
         {
             renderer.resize();
         }
-        calculateNewUniformBuffer(ubo, SCREEN_WIDTH, SCREEN_HEIGHT);
+
+        if (event.type == SDL_EVENT_KEY_DOWN)
+        {
+            if (event.key.key == SDLK_F12)
+            {
+                my_tool_active = true;
+            }   
+        }
+        
+
         // (After event loop)
         // Start the Dear ImGui frame
         ImGui_ImplVulkan_NewFrame();
         ImGui_ImplSDL3_NewFrame();
         ImGui::NewFrame();
 
-        ImGui::ShowDemoWindow(); // Show demo window! :)
-        
+        if (my_tool_active)
+        {
+            // ImGui::Show(); // Show demo window! :)
+            // Create a window called "My First Tool", with a menu bar.
+            ImGui::Begin("Vk Bootstrap", &my_tool_active, 0/*ImGuiWindowFlags_MenuBar*/);
+            // if (ImGui::BeginMenuBar())
+            // {
+            //     if (ImGui::BeginMenu("File"))
+            //     {
+            //         if (ImGui::MenuItem("Open..", "Ctrl+O")) { /* Do stuff */ }
+            //         if (ImGui::MenuItem("Save", "Ctrl+S"))   { /* Do stuff */ }
+            //         if (ImGui::MenuItem("Close", "Ctrl+W"))  { my_tool_active = false; }
+            //         ImGui::EndMenu();
+            //     }
+            //     ImGui::EndMenuBar();
+            // }
+            ImGui::Text("Framerate %.2f fps", 1/deltaTime);
+            ImGui::SliderFloat("float", &scale, 0.0f, 4.0f);
+            ImGui::End();
+        }
         // Render ImGui
         ImGui::Render();
-        
+        calculateNewUniformBuffer(ubo, SCREEN_WIDTH, SCREEN_HEIGHT, scale);
         renderer.updateUniformBuffer(ubo);
+        renderer.renderTileSet(texture, tilemap, tileset, palet);
         int res = renderer.drawFrame();
         if (res != 0)
         {
             SDL_LogError(SDL_LOG_CATEGORY_VIDEO, "failed to draw frame ");
             return true;
         }
+        lastTime = currentTime;
+
     }
 
     return 0;
