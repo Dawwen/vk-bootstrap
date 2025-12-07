@@ -126,7 +126,7 @@ bool device_initialization(VulkanContext& ctx, uint32_t width, uint32_t height)
 bool create_swapchain(VulkanContext& ctx, uint32_t width, uint32_t height)
 {
     vkb::SwapchainBuilder swapchain_builder{ ctx.device };
-    auto swap_ret = swapchain_builder.set_desired_extent(width, height).set_old_swapchain(ctx.swapchain).build();
+    auto swap_ret = swapchain_builder.set_desired_extent(width, height).set_desired_present_mode(VK_PRESENT_MODE_FIFO_KHR).set_old_swapchain(ctx.swapchain).build();
     if (!swap_ret)
     {
         SDL_LogError(SDL_LOG_CATEGORY_VIDEO, swap_ret.error().message().c_str());
@@ -1063,23 +1063,23 @@ bool Renderer::recordCommandBuffer()
     return record_command_buffers(m_ctx, m_render_data);
 }
 
-bool Renderer::renderTileSet(VkImage texture, TileMap& map, TileMap& tileset, TilePalet& palet)
+bool Renderer::renderTileSet(VkImage texture, TileSet& tileset, TilePalet& palet)
 {
-    VkImageCreateInfo imageInfo{};
-    imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-    imageInfo.imageType = VK_IMAGE_TYPE_2D;
-    imageInfo.extent.width = static_cast<uint32_t>(map.getWidth());
-    imageInfo.extent.height = static_cast<uint32_t>(map.getHeight());
-    imageInfo.extent.depth = 1;
-    imageInfo.mipLevels = 1;
-    imageInfo.arrayLayers = 1;
-    imageInfo.format = VK_FORMAT_R8G8B8A8_SRGB;
-    imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
-    imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    imageInfo.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
-    imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-    imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
-    imageInfo.flags = 0; // Optional
+    // VkImageCreateInfo imageInfo{};
+    // imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+    // imageInfo.imageType = VK_IMAGE_TYPE_2D;
+    // imageInfo.extent.width = static_cast<uint32_t>(map.getWidth());
+    // imageInfo.extent.height = static_cast<uint32_t>(map.getHeight());
+    // imageInfo.extent.depth = 1;
+    // imageInfo.mipLevels = 1;
+    // imageInfo.arrayLayers = 1;
+    // imageInfo.format = VK_FORMAT_R8G8B8A8_SRGB;
+    // imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+    // imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    // imageInfo.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+    // imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    // imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+    // imageInfo.flags = 0; // Optional
     // vmaCreateImage(getAllocator(), &imageInfo, )
     return true;
 }

@@ -2,11 +2,12 @@
 
 #include <SDL3/SDL_log.h>
 
-TileMap::TileMap(uint32_t x, uint32_t y)
+TileMap::TileMap(uint32_t x, uint32_t y, uint32_t size)
 {
     width = x;
     height = y;
-    buffer = new Buffer(BufferType::StagingBuffer, x*y, sizeof(uint32_t));
+    tile_size = size;
+    buffer = new Buffer(BufferType::StagingBuffer, x * y * size, sizeof(uint32_t));
     data = new uint32_t[x*y]();
 }
 

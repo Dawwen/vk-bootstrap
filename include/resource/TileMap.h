@@ -10,13 +10,14 @@ class TileMap
     private:
         uint32_t width;
         uint32_t height;
+        uint32_t tile_size; 
         uint32_t *data;
         Buffer* buffer; 
 
         bool checkAccess(uint32_t x, uint32_t y);
 
     public:
-        TileMap(uint32_t x, uint32_t y);
+        TileMap(uint32_t x, uint32_t y, u_int32_t size);
         ~TileMap();
         TileMap(const TileMap&) = delete;
 

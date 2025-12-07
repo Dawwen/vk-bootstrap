@@ -70,6 +70,26 @@ uint32_t Buffer::getNumberOfElements()
     return m_number_elements;
 }
 
+uint32_t Buffer::get(uint32_t offset)
+{
+    if (offset >= (m_size / sizeof(uint32_t)))
+    {
+        SDL_LogError(SDL_LOG_CATEGORY_VIDEO, "trying to get value at offset %d in a buffer of size %d", offset, m_size / sizeof(uint32_t));
+    }
+    
+    return ((uint32_t*)m_allocation_info.pMappedData)[offset];
+}
+
+void Buffer::set(uint32_t offset, uint32_t value)
+{
+    if (offset >= (m_size / sizeof(uint32_t)))
+    {
+        SDL_LogError(SDL_LOG_CATEGORY_VIDEO, "trying to set value at offset %d in a buffer of size %d", offset, m_size / sizeof(uint32_t));
+    }
+    
+    ((uint32_t*)m_allocation_info.pMappedData)[offset] = value;
+}
+
 bool Buffer::copyToStagingBuffer(const void *buffer, size_t size, VkDeviceSize offset)
 {
     VmaAllocator& allocator = getAllocator();

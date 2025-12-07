@@ -8,7 +8,7 @@
 #include <vector>
 #include <iostream>
 
-#include "resource/TileMap.h"
+#include "resource/TileSet.h"
 #include "resource/TilePalet.h"
 
 #include "video/Renderer.h"
@@ -61,7 +61,7 @@ int main(int argc, char const *argv[])
     renderer.createVertexBuffer(vertices);
     renderer.createIndicesBuffer(indices);
 
-    bool my_tool_active;
+    bool my_tool_active = true;
     float scale = 1.0;
 
     auto lastTime = std::chrono::high_resolution_clock::now();
@@ -77,25 +77,33 @@ int main(int argc, char const *argv[])
     color.b = 0xFF;
     palet.addColor(color);
 
-    TileMap tileset {16, 8};
-    for (size_t i = 0; i < 8; i++)
-    {
-        for (size_t j = 0; j < 16; j++)
-        {
-            tileset.set(j, i, j + i%2 + j/8);
-        }
-    }
-    tileset.updateBuffer();
+    uint32_t WIDTH = 8;
+    uint32_t MAX_TILES = 2;
+    TileSet tileset {WIDTH, MAX_TILES};
 
-    TileMap tilemap {16, 16};
-    for (size_t i = 0; i < 16; i++)
-    {
-        for (size_t j = 0; j < 16; j++)
+    for (size_t k = 0; k < MAX_TILES; k++)
+    {   
+        for (size_t i = 0; i < 8; i++)
         {
-            tilemap.set(j, i, j + i%2);
+            for (size_t j = 0; j < 8; j++)
+            {
+                uint32_t value = (j%2 + i%2)%2 ;
+                tileset.set(k, j, i, value);
+            }
         }
     }
-    tilemap.updateBuffer();
+
+    // tileset.updateBuffer();
+
+    // TileMap tilemap {16, 16};
+    // for (size_t i = 0; i < 16; i++)
+    // {
+    //     for (size_t j = 0; j < 16; j++)
+    //     {
+    //         tilemap.set(j, i, j + i%2);
+    //     }
+    // }
+    // tilemap.updateBuffer();
     
     VkImage texture;
     SDL_Event event;
@@ -151,7 +159,7 @@ int main(int argc, char const *argv[])
         ImGui::Render();
         calculateNewUniformBuffer(ubo, SCREEN_WIDTH, SCREEN_HEIGHT, scale);
         renderer.updateUniformBuffer(ubo);
-        renderer.renderTileSet(texture, tilemap, tileset, palet);
+        renderer.renderTileSet(texture, tileset, palet);
         int res = renderer.drawFrame();
         if (res != 0)
         {

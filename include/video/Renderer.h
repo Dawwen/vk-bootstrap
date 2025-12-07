@@ -19,7 +19,7 @@
 #include "video/Buffer.h"
 #include "video/UniformBuffer.h"
 
-#include "resource/TileMap.h"
+#include "resource/TileSet.h"
 #include "resource/TilePalet.h"
 
 
@@ -42,7 +42,7 @@ class Renderer
         bool updateUniformBuffer(const UniformBufferObject& ubo);
 
         bool recordCommandBuffer();
-        bool renderTileSet(VkImage texture, TileMap& map, TileMap& tileset, TilePalet& palet);
+        bool renderTileSet(VkImage texture, TileSet& tileset, TilePalet& palet);
 
 };
 
