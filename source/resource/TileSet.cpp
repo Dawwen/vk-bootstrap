@@ -57,3 +57,12 @@ void TileSet::set(uint32_t index, uint32_t x, uint32_t y, uint32_t value)
     
     m_buffer->set(getOffset(index, x, y, m_width), value);
 }
+
+const VkDescriptorBufferInfo TileSet::getDescriptorBufferInfo()
+{
+    VkDescriptorBufferInfo tilesetInfo = {};
+    tilesetInfo.buffer = m_buffer->getBuffer();
+    tilesetInfo.offset = 0;
+    tilesetInfo.range = m_buffer->getSize();
+    return tilesetInfo;
+}

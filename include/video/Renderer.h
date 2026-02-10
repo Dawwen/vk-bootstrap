@@ -42,8 +42,8 @@ class Renderer
         bool updateUniformBuffer(const UniformBufferObject& ubo);
 
         bool recordCommandBuffer();
-        bool renderTileSet(VkImage texture, TileSet& tileset, TilePalet& palet);
-
+        void createTileTexture(VkImage &texture, VkImageView &textureView, VmaAllocation &textureAllocation, TileSet &tileset, TilePalet &palet);
+        bool renderTileSet(VkImage &texture, VkImageView& textureView, TileSet &tileset, TilePalet &palet);
 };
 
 #endif //RENDERER_H

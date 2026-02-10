@@ -177,6 +177,23 @@ bool create_descriptor_pool(VulkanContext& ctx, RenderData& data)
         throw std::runtime_error("failed to create descriptor pool!");
     }
 
+
+    VkDescriptorPoolSize poolSize_compute{};
+    poolSize_compute.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    poolSize_compute.descriptorCount = static_cast<uint32_t>(1);
+
+    VkDescriptorPoolCreateInfo poolInfo_compute{};
+    poolInfo_compute.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+    poolInfo_compute.poolSizeCount = 1;
+    poolInfo_compute.pPoolSizes = &poolSize;
+    poolInfo_compute.maxSets = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
+    poolInfo_compute.flags = 0;
+
+    if (ctx.disp.createDescriptorPool(&poolInfo_compute, nullptr, &data.descriptor_pool_compute) != VK_SUCCESS)
+    {
+        throw std::runtime_error("failed to create descriptor pool!");
+    }
+
     // Create ImGui descriptor pool
     VkDescriptorPoolSize poolSizes_imGui[] = {
         { VK_DESCRIPTOR_TYPE_SAMPLER, 1000 },
@@ -1063,23 +1080,268 @@ bool Renderer::recordCommandBuffer()
     return record_command_buffers(m_ctx, m_render_data);
 }
 
-bool Renderer::renderTileSet(VkImage texture, TileSet& tileset, TilePalet& palet)
+void Renderer::createTileTexture(VkImage& texture, VkImageView& textureView, VmaAllocation& textureAllocation, TileSet& tileset, TilePalet& palet)
 {
-    // VkImageCreateInfo imageInfo{};
-    // imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-    // imageInfo.imageType = VK_IMAGE_TYPE_2D;
-    // imageInfo.extent.width = static_cast<uint32_t>(map.getWidth());
-    // imageInfo.extent.height = static_cast<uint32_t>(map.getHeight());
-    // imageInfo.extent.depth = 1;
-    // imageInfo.mipLevels = 1;
-    // imageInfo.arrayLayers = 1;
-    // imageInfo.format = VK_FORMAT_R8G8B8A8_SRGB;
-    // imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
-    // imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    // imageInfo.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
-    // imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-    // imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
-    // imageInfo.flags = 0; // Optional
-    // vmaCreateImage(getAllocator(), &imageInfo, )
+    VkImageCreateInfo imageInfo{};
+    imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+    imageInfo.imageType = VK_IMAGE_TYPE_2D;
+    imageInfo.extent.width = static_cast<uint32_t>(tileset.getWidth());
+    imageInfo.extent.height = static_cast<uint32_t>(tileset.getHeight() * tileset.getMaxSize());
+    imageInfo.extent.depth = 1;
+    imageInfo.mipLevels = 1;
+    imageInfo.arrayLayers = 1;//static_cast<uint32_t>(tileset.getMaxSize());
+    imageInfo.format = VK_FORMAT_R8G8B8A8_UINT;
+    imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+    imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    imageInfo.usage =  VK_IMAGE_USAGE_STORAGE_BIT;
+    imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+    imageInfo.flags = 0; // Optional
+
+    VmaAllocationCreateInfo vmaCreateImageInfo = {};
+    vmaCreateImageInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+    vmaCreateImageInfo.requiredFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+
+    // VmaAllocation allocation;
+    VmaAllocationInfo allocationInfo;
+    vmaCreateImage(getAllocator(), &imageInfo, &vmaCreateImageInfo, &texture, &textureAllocation, &allocationInfo);
+
+    VkImageViewCreateInfo viewInfo{};
+    viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+    viewInfo.image = texture;
+    viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+    viewInfo.format = VK_FORMAT_R8G8B8A8_UINT;
+    viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    viewInfo.subresourceRange.baseMipLevel = 0;
+    viewInfo.subresourceRange.levelCount = 1;
+    viewInfo.subresourceRange.baseArrayLayer = 0;
+    viewInfo.subresourceRange.layerCount = 1;
+    if (m_ctx.disp.createImageView(&viewInfo, nullptr, &textureView) != VK_SUCCESS)
+    {
+        throw std::runtime_error("failed to create texture image view!");
+    }
+}
+
+bool Renderer::renderTileSet(VkImage& texture, VkImageView& textureView, TileSet& tileset, TilePalet& palet)
+{
+    std::array<VkDescriptorSetLayoutBinding, 3> layoutBindings{};
+    layoutBindings[0].binding = 0;
+    layoutBindings[0].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    layoutBindings[0].descriptorCount = 1;
+    layoutBindings[0].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+    layoutBindings[0].pImmutableSamplers = nullptr;
+
+    layoutBindings[1].binding = 1;
+    layoutBindings[1].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    layoutBindings[1].descriptorCount = 1;
+    layoutBindings[1].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+    layoutBindings[1].pImmutableSamplers = nullptr;
+
+    layoutBindings[2].binding = 2;
+    layoutBindings[2].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+    layoutBindings[2].descriptorCount = 1;
+    layoutBindings[2].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+    layoutBindings[2].pImmutableSamplers = nullptr;
+
+    VkDescriptorSetLayoutCreateInfo layoutInfo{};
+    layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+    layoutInfo.bindingCount = 3;
+    layoutInfo.pBindings = layoutBindings.data();
+
+    if (m_ctx.disp.createDescriptorSetLayout(&layoutInfo, nullptr, &m_render_data.computeDescriptorSetLayout) != VK_SUCCESS)
+    {
+        throw std::runtime_error("failed to create compute descriptor set layout!");
+    }
+
+
+    VkDescriptorPoolSize poolSizes;
+    poolSizes.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    poolSizes.descriptorCount = 2;
+    VkDescriptorPoolSize poolSizes2;
+    poolSizes2.type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+    poolSizes2.descriptorCount = 1;
+
+    std::array<VkDescriptorPoolSize, 2> poolSizesArray{poolSizes, poolSizes2};
+
+    VkDescriptorPoolCreateInfo poolInfo{};
+    poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+    poolInfo.poolSizeCount = static_cast<uint32_t>(poolSizesArray.size());
+    poolInfo.pPoolSizes = poolSizesArray.data();
+    poolInfo.maxSets = 1;
+
+    if (m_ctx.disp.createDescriptorPool(&poolInfo, nullptr, &m_render_data.descriptor_pool_compute) != VK_SUCCESS)
+    {
+        throw std::runtime_error("failed to create compute descriptor pool!");
+    }
+
+    VkDescriptorSetAllocateInfo descAllocInfo{};
+    descAllocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+    descAllocInfo.descriptorPool = m_render_data.descriptor_pool_compute;
+    descAllocInfo.descriptorSetCount = 1;
+    descAllocInfo.pSetLayouts = &m_render_data.computeDescriptorSetLayout;
+    // data.descriptor_sets.resize(MAX_FRAMES_IN_FLIGHT);
+    if (m_ctx.disp.allocateDescriptorSets(&descAllocInfo, &m_render_data.computeDescriptorSet) != VK_SUCCESS) {
+        throw std::runtime_error("failed to allocate descriptor sets!");
+    }
+    std::array<VkWriteDescriptorSet, 3> descriptorWrites{};
+
+    VkDescriptorBufferInfo paletInfo = palet.getDescriptorBufferInfo();
+    VkDescriptorBufferInfo tilesetInfo = tileset.getDescriptorBufferInfo();
+
+    descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    descriptorWrites[0].dstSet = m_render_data.computeDescriptorSet;
+    descriptorWrites[0].dstBinding = 0;
+    descriptorWrites[0].dstArrayElement = 0;
+    descriptorWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    descriptorWrites[0].descriptorCount = 1;
+    descriptorWrites[0].pBufferInfo = &paletInfo;
+
+    descriptorWrites[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    descriptorWrites[1].dstSet = m_render_data.computeDescriptorSet;
+    descriptorWrites[1].dstBinding = 1;
+    descriptorWrites[1].dstArrayElement = 0;
+    descriptorWrites[1].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    descriptorWrites[1].descriptorCount = 1;
+    descriptorWrites[1].pBufferInfo = &tilesetInfo;
+
+    VkDescriptorImageInfo textureInfo = {};
+    textureInfo.imageView = textureView;
+    textureInfo.imageLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    textureInfo.sampler = VK_NULL_HANDLE;
+
+    descriptorWrites[2].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    descriptorWrites[2].dstSet = m_render_data.computeDescriptorSet;
+    descriptorWrites[2].dstBinding = 2;
+    descriptorWrites[2].dstArrayElement = 0;
+    descriptorWrites[2].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+    descriptorWrites[2].descriptorCount = 1;
+    descriptorWrites[2].pImageInfo = &textureInfo;
+
+    m_ctx.disp.updateDescriptorSets(static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
+
+    // Create pipeline layout -
+    VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
+    pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+    pipelineLayoutInfo.setLayoutCount = 1;
+    pipelineLayoutInfo.pSetLayouts = &m_render_data.computeDescriptorSetLayout;
+    pipelineLayoutInfo.pushConstantRangeCount = 0;
+    pipelineLayoutInfo.pPushConstantRanges = nullptr;
+
+    if (m_ctx.disp.createPipelineLayout(&pipelineLayoutInfo, nullptr, &m_render_data.computePipelineLayout) != VK_SUCCESS)
+    {
+        throw std::runtime_error("failed to create compute pipeline layout!");
+    }
+
+    // Create the compute pipeline
+
+
+    std::vector<char> computeShaderCode;
+    try
+    {
+        computeShaderCode = readFile(std::string(SHADER_FOLDER) + "/tileset.spv");
+    }
+    catch(const std::exception& e)
+    {
+        SDL_LogError(SDL_LOG_CATEGORY_VIDEO, "Failed to read shader file: %s", e.what());
+        return true;
+    }
+    VkShaderModule computeShaderModule = createShaderModule(m_ctx, computeShaderCode);
+
+    
+    VkPipelineShaderStageCreateInfo computeShaderStageInfo{};
+    computeShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    computeShaderStageInfo.stage = VK_SHADER_STAGE_COMPUTE_BIT;
+    computeShaderStageInfo.module = computeShaderModule;
+    computeShaderStageInfo.pName = "main";
+
+    VkComputePipelineCreateInfo computePipelineInfo{};
+    computePipelineInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
+    computePipelineInfo.stage = computeShaderStageInfo;
+    computePipelineInfo.layout = m_render_data.computePipelineLayout;
+
+    if (m_ctx.disp.createComputePipelines(VK_NULL_HANDLE, 1, &computePipelineInfo, nullptr, &m_render_data.computePipeline) != VK_SUCCESS)
+    {
+        throw std::runtime_error("failed to create compute pipeline!");
+    }
+
+
+    // Record compute commands in a command buffer
+
+    VkCommandBufferAllocateInfo allocInfo{};
+    allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    allocInfo.commandPool = m_ctx.command_pool;
+    allocInfo.commandBufferCount = 1;
+
+    VkCommandBuffer computeCommandBuffer;
+    if (m_ctx.disp.allocateCommandBuffers(&allocInfo, &computeCommandBuffer) != VK_SUCCESS)
+    {
+        throw std::runtime_error("failed to allocate compute command buffer!");
+    }
+
+    VkCommandBufferBeginInfo beginInfo{};
+    beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+
+    if (m_ctx.disp.beginCommandBuffer(computeCommandBuffer, &beginInfo) != VK_SUCCESS) {
+        throw std::runtime_error("failed to begin recording command buffer!");
+    }
+
+
+    vkCmdBindPipeline(computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, m_render_data.computePipeline);
+    vkCmdBindDescriptorSets(computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, m_render_data.computePipelineLayout, 0, 1, &m_render_data.computeDescriptorSet, 0, 0);
+
+    vkCmdDispatch(computeCommandBuffer, 8, 2, 1);
+
+    if (vkEndCommandBuffer(computeCommandBuffer) != VK_SUCCESS) {
+        throw std::runtime_error("failed to record compute command buffer!");
+    }
+
+    
+    // Submit compute command buffer
+    VkSubmitInfo submitInfo{};
+    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    submitInfo.commandBufferCount = 1;
+    submitInfo.pCommandBuffers = &computeCommandBuffer;
+
+    if (m_ctx.disp.queueSubmit(m_ctx.graphics_queue, 1, &submitInfo, VK_NULL_HANDLE) != VK_SUCCESS)
+    {
+        throw std::runtime_error("failed to submit compute command buffer!");
+    }
+
+    vkDeviceWaitIdle(m_ctx.device.device);
+
+    // Handle image layout transitions
+    // Cleanup
+
+    m_ctx.disp.destroyPipeline(m_render_data.computePipeline, nullptr);
+    m_ctx.disp.destroyPipelineLayout(m_render_data.computePipelineLayout, nullptr);
+    m_ctx.disp.destroyDescriptorPool(m_render_data.descriptor_pool_compute, nullptr);
+    m_ctx.disp.destroyDescriptorSetLayout(m_render_data.computeDescriptorSetLayout, nullptr);
+    m_ctx.disp.destroyShaderModule(computeShaderModule, nullptr);
+    
+
+
+
+
+
+
+    // VkPipelineShaderStageCreateInfo shaderStageInfo = {};
+    // shaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    // shaderStageInfo.stage = VK_SHADER_STAGE_COMPUTE_BIT;
+    // shaderStageInfo.module = tileset.getComputeShaderModule(m_ctx);
+    // shaderStageInfo.pName = "main";
+    
+
+    // VkComputePipelineCreateInfo pipelineInfo;
+    // pipelineInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
+    // pipelineInfo.stage.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    // pipelineInfo.stage.stage = VK_SHADER_STAGE_COMPUTE_BIT;
+    // pipelineInfo.stage.module = tileset.getComputeShaderModule(m_ctx);
+    // pipelineInfo.stage.pName = "main";
+    // pipelineInfo.layout = tileset.getPipelineLayout(m_ctx, palet);
+
+
+    // VkPipeline computePipeline;
+    // vkCreateComputePipeline(m_ctx.device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &computePipeline);
     return true;
 }

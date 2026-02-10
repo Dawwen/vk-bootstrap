@@ -30,6 +30,13 @@ struct RenderData {
     std::vector<VkFence> in_flight_fences;
     std::vector<VkFence> image_in_flight;
     size_t current_frame = 0;
+
+
+    VkDescriptorPool descriptor_pool_compute;
+    VkDescriptorSetLayout computeDescriptorSetLayout;
+    VkDescriptorSet computeDescriptorSet;
+    VkPipelineLayout computePipelineLayout;
+    VkPipeline computePipeline;
 };
 
 #endif //RENDER_DATA_H

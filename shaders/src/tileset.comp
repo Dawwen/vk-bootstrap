@@ -1,0 +1,28 @@
+#version 450
+
+layout(local_size_x_id = 0) in;
+
+layout(set = 0, binding = 0) buffer restrict readonly Palet {
+    uint palet[];
+};
+
+layout(set = 0, binding = 1) buffer restrict readonly TileSet {
+    uint tileSet[];
+};
+
+layout(set = 0, binding = 2, rgba8ui) uniform uimage2D renderTexture;
+
+
+
+void main() {
+    // in uvec3 gl_GlobalInvocationID;
+    uint tile_id = gl_WorkGroupID.x;
+    uint index = gl_GlobalInvocationID.x;
+
+    uint x = index % 8;
+    uint y = index / 8;
+
+    imageStore(renderTexture, ivec2(x, y),
+               uvec4(palet[tileSet[index]]));
+    
+}

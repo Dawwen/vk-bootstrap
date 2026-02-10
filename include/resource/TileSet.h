@@ -22,6 +22,12 @@ public:
     uint32_t get(uint32_t index, uint32_t x, uint32_t y);
     void set(uint32_t index, uint32_t x, uint32_t y, uint32_t value);
 
+    const uint32_t getWidth()   { return m_width; }
+    const uint32_t getHeight()  { return m_width; }
+    const uint32_t getMaxSize() { return m_max_size; }
+
+    const VkDescriptorBufferInfo getDescriptorBufferInfo();
+
 };
 
 #endif // TILE_SET_H

@@ -14,10 +14,10 @@
 #include "video/Renderer.h"
 #include "video/Vertex.h"
 #include "video/UniformBuffer.h"
+#include "video/VmaUsage.h"
 
 const uint32_t SCREEN_WIDTH = 800;
 const uint32_t SCREEN_HEIGHT = 600;
-
 
 const std::vector<Vertex> vertices = {
     {{-0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}},
@@ -44,6 +44,8 @@ void calculateNewUniformBuffer(UniformBufferObject& ubo, uint32_t width, uint32_
     // ubo.proj[1][1] *= -1;
 }
 
+
+
 int main(int argc, char const *argv[])
 {
     Renderer renderer;
@@ -68,7 +70,7 @@ int main(int argc, char const *argv[])
     auto currentTime = std::chrono::high_resolution_clock::now();
     float deltaTime;
 
-    TilePalet palet;
+    TilePalet palet {ColorDepth::UINT_32BIT, 16};
     TileColor color;
     color.color = 0;
     color.r = 0xFF;
@@ -106,6 +108,11 @@ int main(int argc, char const *argv[])
     // tilemap.updateBuffer();
     
     VkImage texture;
+    VkImageView textureView;
+    VmaAllocation textureAllocation;
+
+    renderer.createTileTexture(texture, textureView, textureAllocation, tileset, palet);
+
     SDL_Event event;
     while (event.type != SDL_EVENT_QUIT)
     {
@@ -125,9 +132,9 @@ int main(int argc, char const *argv[])
             if (event.key.key == SDLK_F12)
             {
                 my_tool_active = true;
-            }   
+            }
         }
-        
+
 
         // (After event loop)
         // Start the Dear ImGui frame
@@ -159,7 +166,9 @@ int main(int argc, char const *argv[])
         ImGui::Render();
         calculateNewUniformBuffer(ubo, SCREEN_WIDTH, SCREEN_HEIGHT, scale);
         renderer.updateUniformBuffer(ubo);
-        renderer.renderTileSet(texture, tileset, palet);
+        std::cout << "Before render " << std::endl;
+        renderer.renderTileSet(texture, textureView, tileset, palet);
+        std::cout << "After render " << std::endl;
         int res = renderer.drawFrame();
         if (res != 0)
         {
@@ -167,8 +176,8 @@ int main(int argc, char const *argv[])
             return true;
         }
         lastTime = currentTime;
-
     }
 
+    vmaDestroyImage(getAllocator(), texture, textureAllocation);
     return 0;
 }
