@@ -10,7 +10,7 @@ uint32_t inline getIndexOffset(uint32_t index, ColorDepth depth)
 TilePalet::TilePalet(ColorDepth depth, uint32_t maxColors) 
     : m_colorDepth(depth), m_maxColors(maxColors)
 {
-    m_buffer = new Buffer(StagingBuffer, m_maxColors, ((uint32_t)m_colorDepth / 8));
+    m_buffer = new Buffer(StorageBuffer, m_maxColors, ((uint32_t)m_colorDepth / 8));
 }
 
 

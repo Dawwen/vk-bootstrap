@@ -11,6 +11,7 @@ enum BufferType
     StagingBuffer,
     VertexBuffer,
     IndiceBuffer,
+    StorageBuffer,
 };
 
 class Buffer

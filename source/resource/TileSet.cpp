@@ -4,7 +4,7 @@ TileSet::TileSet(uint32_t width, uint32_t maxSize)
 {
     m_width = width;
     m_max_size = maxSize;
-    m_buffer = new Buffer(StagingBuffer, width * width * maxSize, sizeof(uint32_t));
+    m_buffer = new Buffer(StorageBuffer, width * width * maxSize, sizeof(uint32_t));
 }
 
 TileSet::~TileSet()

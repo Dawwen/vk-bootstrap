@@ -178,11 +178,11 @@ int main(int argc, char const *argv[])
     // }
     // tilemap.updateBuffer();
     
-    // VkImage texture;
-    // VkImageView textureView;
-    // VmaAllocation textureAllocation;
+    VkImage texture;
+    VkImageView textureView;
+    VmaAllocation textureAllocation;
 
-    // renderer.createTileTexture(texture, textureView, textureAllocation, tileset, palet);
+    renderer.createTileTexture(texture, textureView, textureAllocation, tileset, palet);
 
     SDL_Event event;
     while (event.type != SDL_EVENT_QUIT)
@@ -238,7 +238,7 @@ int main(int argc, char const *argv[])
         calculateNewUniformBuffer(ubo, SCREEN_WIDTH, SCREEN_HEIGHT, scale);
         renderer.updateUniformBuffer(ubo);
         // std::cout << "Before render " << std::endl;
-        // renderer.renderTileSet(texture, textureView, tileset, palet);
+        renderer.renderTileSet(texture, textureView, tileset, palet);
         // gpuDump(texture, textureView);
         // std::cout << "After render " << std::endl;
         int res = renderer.drawFrame();
@@ -250,6 +250,6 @@ int main(int argc, char const *argv[])
         lastTime = currentTime;
     }
 
-    // vmaDestroyImage(getAllocator(), texture, textureAllocation);
+    renderer.cleanTileTexture(texture, textureView, textureAllocation);
     return 0;
 }

@@ -1099,10 +1099,82 @@ void Renderer::createTileTexture(VkImage& texture, VkImageView& textureView, Vma
     viewInfo.subresourceRange.levelCount = 1;
     viewInfo.subresourceRange.baseArrayLayer = 0;
     viewInfo.subresourceRange.layerCount = 1;
+
     if (m_ctx.disp.createImageView(&viewInfo, nullptr, &textureView) != VK_SUCCESS)
     {
         throw std::runtime_error("failed to create texture image view!");
     }
+
+    // Transition the image layout to VK_IMAGE_LAYOUT_GENERAL for compute shader access
+    VkCommandBufferAllocateInfo allocInfo{};
+    allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    allocInfo.commandPool = m_ctx.command_pool;
+    allocInfo.commandBufferCount = 1;
+
+    VkCommandBuffer commandBuffer;
+    if (m_ctx.disp.allocateCommandBuffers(&allocInfo, &commandBuffer) != VK_SUCCESS)
+    {
+        throw std::runtime_error("failed to allocate command buffer!");
+    }
+
+    VkCommandBufferBeginInfo beginInfo{};
+    beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+
+    if (m_ctx.disp.beginCommandBuffer(commandBuffer, &beginInfo) != VK_SUCCESS)
+    {
+        throw std::runtime_error("failed to begin recording command buffer!");
+    }
+
+    VkImageMemoryBarrier barrier{};
+    barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+    barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    barrier.newLayout = VK_IMAGE_LAYOUT_GENERAL;
+    barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.image = texture;
+    barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    barrier.subresourceRange.baseMipLevel = 0;
+    barrier.subresourceRange.levelCount = 1;
+    barrier.subresourceRange.baseArrayLayer = 0;
+    barrier.subresourceRange.layerCount = 1;
+    barrier.srcAccessMask = 0;
+    barrier.dstAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+
+    m_ctx.disp.cmdPipelineBarrier(
+        commandBuffer,
+        VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+        VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+        0,
+        0, nullptr,
+        0, nullptr,
+        1, &barrier
+    );
+
+    if (m_ctx.disp.endCommandBuffer(commandBuffer) != VK_SUCCESS)
+    {
+        throw std::runtime_error("failed to record command buffer!");
+    }
+
+    VkSubmitInfo submitInfo{};
+    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    submitInfo.commandBufferCount = 1;
+    submitInfo.pCommandBuffers = &commandBuffer;
+
+    if (m_ctx.disp.queueSubmit(m_ctx.graphics_queue, 1, &submitInfo, VK_NULL_HANDLE) != VK_SUCCESS)
+    {
+        throw std::runtime_error("failed to submit command buffer!");
+    }
+
+    m_ctx.disp.queueWaitIdle(m_ctx.graphics_queue);
+    m_ctx.disp.freeCommandBuffers(m_ctx.command_pool, 1, &commandBuffer);
+}
+
+void Renderer::cleanTileTexture(VkImage& texture, VkImageView& textureView, VmaAllocation& textureAllocation)
+{
+    m_ctx.disp.destroyImageView(textureView, nullptr);
+    vmaDestroyImage(getAllocator(), texture, textureAllocation);
 }
 
 bool Renderer::renderTileSet(VkImage& texture, VkImageView& textureView, TileSet& tileset, TilePalet& palet)
@@ -1189,7 +1261,7 @@ bool Renderer::renderTileSet(VkImage& texture, VkImageView& textureView, TileSet
 
     VkDescriptorImageInfo textureInfo = {};
     textureInfo.imageView = textureView;
-    textureInfo.imageLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    textureInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
     textureInfo.sampler = VK_NULL_HANDLE;
 
     descriptorWrites[2].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
