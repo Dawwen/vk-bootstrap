@@ -16,6 +16,9 @@
 #include "video/UniformBuffer.h"
 #include "video/VmaUsage.h"
 
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#include "stb_image_write.h"
+
 const uint32_t SCREEN_WIDTH = 800;
 const uint32_t SCREEN_HEIGHT = 600;
 
@@ -44,6 +47,58 @@ void calculateNewUniformBuffer(UniformBufferObject& ubo, uint32_t width, uint32_
     // ubo.proj[1][1] *= -1;
 }
 
+void cpuRender(TileSet& tileset, TilePalet& palet)
+{
+	int width = tileset.getWidth();
+	int height = tileset.getHeight() * tileset.getMaxSize();
+
+	
+    unsigned char *data_debug = new unsigned char[height * width * 4];
+
+    for (int y = 0; y < height; y++)
+    {
+        for (int x = 0; x < width; x++)
+        {
+            uint32_t tileValue = tileset.get(y/tileset.getHeight(), x, y);
+            TileColor tc = palet.getColor(tileValue);
+            size_t idx = (y * width + x) * 4;
+            data_debug[idx + 0] = tc.r; // R
+            data_debug[idx + 1] = tc.g; // G
+            data_debug[idx + 2] = tc.b; // B
+            data_debug[idx + 3] = tc.a; // A
+        }
+    }
+
+    // stbi_flip_vertically_on_write(1);
+    stbi_write_bmp("cpu_render.bmp", width, height, 4, data_debug);
+    delete[] data_debug;
+}
+
+void gpuDump(TileSet& tileset, TilePalet& palet)
+{
+    int width = tileset.getWidth();
+	int height = tileset.getHeight() * tileset.getMaxSize();
+
+    unsigned char *data_debug = new unsigned char[height * width * 4];
+
+    for (int y = 0; y < height; y++)
+    {
+        for (int x = 0; x < width; x++)
+        {
+            uint32_t tileValue = tileset.get(y/tileset.getHeight(), x, y);
+            TileColor tc = palet.getColor(tileValue);
+            size_t idx = (y * width + x) * 4;
+            data_debug[idx + 0] = tc.r; // R
+            data_debug[idx + 1] = tc.g; // G
+            data_debug[idx + 2] = tc.b; // B
+            data_debug[idx + 3] = tc.a; // A
+        }
+    }
+
+    // stbi_flip_vertically_on_write(1);
+    stbi_write_bmp("gpu_render.bmp", width, height, 4, data_debug);
+    delete[] data_debug;
+}
 
 
 int main(int argc, char const *argv[])
@@ -72,28 +127,44 @@ int main(int argc, char const *argv[])
 
     TilePalet palet {ColorDepth::UINT_32BIT, 16};
     TileColor color;
-    color.color = 0;
-    color.r = 0xFF;
+    // color.color = 0xFFFFFFFF;
+    color.color = 0xFF00FF00;
 
     palet.addColor(color);
-    color.b = 0xFF;
-    palet.addColor(color);
+    std::cout << "Added color: " << std::hex << color.color << std::dec << std::endl;
+    std::cout << "Added color: " << std::hex << palet.getColor(0).color << std::dec << std::endl;
+    
+    color.color = 0xFFFF00FF;
 
+    palet.addColor(color);
+    std::cout << "Added color: " << std::hex << color.color << std::dec << std::endl;
+    std::cout << "Added color: " << std::hex << palet.getColor(1).color << std::dec << std::endl;
+    
     uint32_t WIDTH = 8;
     uint32_t MAX_TILES = 2;
     TileSet tileset {WIDTH, MAX_TILES};
 
     for (size_t k = 0; k < MAX_TILES; k++)
     {   
-        for (size_t i = 0; i < 8; i++)
+        for (size_t i = 0; i < tileset.getHeight(); i++)
         {
-            for (size_t j = 0; j < 8; j++)
+            for (size_t j = 0; j < tileset.getWidth(); j++)
             {
-                uint32_t value = (j%2 + i%2)%2 ;
-                tileset.set(k, j, i, value);
+                if (k == 0)
+                {
+                    uint32_t value = (j%2 + i%2)%2 ;
+                    tileset.set(k, j, i, value);
+                }
+                else
+                {
+                    uint32_t value = 1;
+                    tileset.set(k, j, i, value);
+                }
             }
         }
     }
+
+    cpuRender(tileset, palet);
 
     // tileset.updateBuffer();
 
@@ -166,9 +237,10 @@ int main(int argc, char const *argv[])
         ImGui::Render();
         calculateNewUniformBuffer(ubo, SCREEN_WIDTH, SCREEN_HEIGHT, scale);
         renderer.updateUniformBuffer(ubo);
-        std::cout << "Before render " << std::endl;
+        // std::cout << "Before render " << std::endl;
         renderer.renderTileSet(texture, textureView, tileset, palet);
-        std::cout << "After render " << std::endl;
+        gpuDump(texture, textureView);
+        // std::cout << "After render " << std::endl;
         int res = renderer.drawFrame();
         if (res != 0)
         {

@@ -43,6 +43,7 @@ uint32_t TilePalet::addColor(TileColor color)
         }
     }
     uint32_t index = m_currentSize;
+    m_currentSize++;
     m_buffer->set(getIndexOffset(index, m_colorDepth), color.color);
     return index;
 }
