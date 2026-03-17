@@ -177,23 +177,6 @@ bool create_descriptor_pool(VulkanContext& ctx, RenderData& data)
         throw std::runtime_error("failed to create descriptor pool!");
     }
 
-
-    VkDescriptorPoolSize poolSize_compute{};
-    poolSize_compute.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    poolSize_compute.descriptorCount = static_cast<uint32_t>(1);
-
-    VkDescriptorPoolCreateInfo poolInfo_compute{};
-    poolInfo_compute.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-    poolInfo_compute.poolSizeCount = 1;
-    poolInfo_compute.pPoolSizes = &poolSize;
-    poolInfo_compute.maxSets = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
-    poolInfo_compute.flags = 0;
-
-    if (ctx.disp.createDescriptorPool(&poolInfo_compute, nullptr, &data.descriptor_pool_compute) != VK_SUCCESS)
-    {
-        throw std::runtime_error("failed to create descriptor pool!");
-    }
-
     // Create ImGui descriptor pool
     VkDescriptorPoolSize poolSizes_imGui[] = {
         { VK_DESCRIPTOR_TYPE_SAMPLER, 1000 },

@@ -59,7 +59,7 @@ void cpuRender(TileSet& tileset, TilePalet& palet)
     {
         for (int x = 0; x < width; x++)
         {
-            uint32_t tileValue = tileset.get(y/tileset.getHeight(), x, y);
+            uint32_t tileValue = tileset.get(y/tileset.getHeight(), x, y % tileset.getHeight());
             TileColor tc = palet.getColor(tileValue);
             size_t idx = (y * width + x) * 4;
             data_debug[idx + 0] = tc.r; // R
@@ -178,11 +178,11 @@ int main(int argc, char const *argv[])
     // }
     // tilemap.updateBuffer();
     
-    VkImage texture;
-    VkImageView textureView;
-    VmaAllocation textureAllocation;
+    // VkImage texture;
+    // VkImageView textureView;
+    // VmaAllocation textureAllocation;
 
-    renderer.createTileTexture(texture, textureView, textureAllocation, tileset, palet);
+    // renderer.createTileTexture(texture, textureView, textureAllocation, tileset, palet);
 
     SDL_Event event;
     while (event.type != SDL_EVENT_QUIT)
@@ -238,8 +238,8 @@ int main(int argc, char const *argv[])
         calculateNewUniformBuffer(ubo, SCREEN_WIDTH, SCREEN_HEIGHT, scale);
         renderer.updateUniformBuffer(ubo);
         // std::cout << "Before render " << std::endl;
-        renderer.renderTileSet(texture, textureView, tileset, palet);
-        gpuDump(texture, textureView);
+        // renderer.renderTileSet(texture, textureView, tileset, palet);
+        // gpuDump(texture, textureView);
         // std::cout << "After render " << std::endl;
         int res = renderer.drawFrame();
         if (res != 0)
@@ -250,6 +250,6 @@ int main(int argc, char const *argv[])
         lastTime = currentTime;
     }
 
-    vmaDestroyImage(getAllocator(), texture, textureAllocation);
+    // vmaDestroyImage(getAllocator(), texture, textureAllocation);
     return 0;
 }
