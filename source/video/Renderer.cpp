@@ -1063,7 +1063,7 @@ bool Renderer::recordCommandBuffer()
     return record_command_buffers(m_ctx, m_render_data);
 }
 
-void Renderer::createTileTexture(VkImage& texture, VkImageView& textureView, VmaAllocation& textureAllocation, TileSet& tileset, TilePalet& palet)
+void Renderer::createTileTexture(VkImage& texture, VkImageView& textureView, VmaAllocation& textureAllocation, VmaAllocationInfo& allocationInfo, TileSet& tileset, TilePalet& palet)
 {
     VkImageCreateInfo imageInfo{};
     imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
@@ -1082,11 +1082,12 @@ void Renderer::createTileTexture(VkImage& texture, VkImageView& textureView, Vma
     imageInfo.flags = 0; // Optional
 
     VmaAllocationCreateInfo vmaCreateImageInfo = {};
-    vmaCreateImageInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
-    vmaCreateImageInfo.requiredFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
-
+    // vmaCreateImageInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+    // vmaCreateImageInfo.requiredFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+    vmaCreateImageInfo.usage = VMA_MEMORY_USAGE_CPU_COPY;
+    vmaCreateImageInfo.requiredFlags = VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
+    vmaCreateImageInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT;
     // VmaAllocation allocation;
-    VmaAllocationInfo allocationInfo;
     vmaCreateImage(getAllocator(), &imageInfo, &vmaCreateImageInfo, &texture, &textureAllocation, &allocationInfo);
 
     VkImageViewCreateInfo viewInfo{};
@@ -1345,7 +1346,7 @@ bool Renderer::renderTileSet(VkImage& texture, VkImageView& textureView, TileSet
     vkCmdBindPipeline(computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, m_render_data.computePipeline);
     vkCmdBindDescriptorSets(computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, m_render_data.computePipelineLayout, 0, 1, &m_render_data.computeDescriptorSet, 0, 0);
 
-    vkCmdDispatch(computeCommandBuffer, 8, 2, 1);
+    vkCmdDispatch(computeCommandBuffer, 128, 1, 1);
 
     if (vkEndCommandBuffer(computeCommandBuffer) != VK_SUCCESS) {
         throw std::runtime_error("failed to record compute command buffer!");

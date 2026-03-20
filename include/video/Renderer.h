@@ -42,7 +42,7 @@ class Renderer
         bool updateUniformBuffer(const UniformBufferObject& ubo);
 
         bool recordCommandBuffer();
-        void createTileTexture(VkImage &texture, VkImageView &textureView, VmaAllocation &textureAllocation, TileSet &tileset, TilePalet &palet);
+        void createTileTexture(VkImage &texture, VkImageView &textureView, VmaAllocation &textureAllocation, VmaAllocationInfo& allocationInfo, TileSet &tileset, TilePalet &palet);
         void cleanTileTexture(VkImage& texture, VkImageView& textureView, VmaAllocation& textureAllocation);
         bool renderTileSet(VkImage &texture, VkImageView& textureView, TileSet &tileset, TilePalet &palet);
 };

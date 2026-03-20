@@ -22,7 +22,12 @@ void main() {
     uint x = index % 8;
     uint y = index / 8;
 
+    // imageStore(renderTexture, ivec2(x, y),
+    //            uvec4(palet[tileSet[index]]));
+
+    // imageStore(renderTexture, ivec2(x, y),
+    //             uvec4(x, y, index, tile_id));
     imageStore(renderTexture, ivec2(x, y),
-               uvec4(palet[tileSet[index]]));
+                uvec4(0, x, y, index));
     
 }
