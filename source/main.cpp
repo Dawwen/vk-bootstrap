@@ -134,18 +134,18 @@ int main(int argc, char const *argv[])
     TilePalet palet {ColorDepth::UINT_32BIT, 16};
     TileColor color;
     // color.color = 0xFFFFFFFF;
-    color.color = 0x7F007F00;
+    color.color = 0xFF00FF00;
 
     palet.addColor(color);
     std::cout << "Added color: " << std::hex << color.color << std::dec << std::endl;
     std::cout << "Check added color: " << std::hex << palet.getColor(0).color << std::dec << std::endl;
     
-    color.color = 0x7FFF007F;
+    color.color = 0xFFFF00FF;
 
     palet.addColor(color);
     std::cout << "Added color: " << std::hex << color.color << std::dec << std::endl;
     std::cout << "Check added color: " << std::hex << palet.getColor(1).color << std::dec << std::endl;
-    
+
     uint32_t WIDTH = 8;
     uint32_t MAX_TILES = 2;
     TileSet tileset {WIDTH, MAX_TILES};
