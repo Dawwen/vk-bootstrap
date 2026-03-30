@@ -2,6 +2,7 @@
 
 #include <fstream>
 #include <iostream>
+#include <memory>
 
 #include "video/Renderer.h"
 #include "video/Buffer.h"
@@ -935,8 +936,10 @@ Renderer::Renderer(/* args */)
 
 Renderer::~Renderer()
 {
+    SDL_LogInfo(SDL_LOG_CATEGORY_VIDEO, "Waiting for device to be idle before cleanup...");
     m_ctx.disp.deviceWaitIdle();
     cleanup(m_ctx, m_render_data);
+    SDL_LogInfo(SDL_LOG_CATEGORY_VIDEO, "Cleanup done.");
 }
 
 bool Renderer::init(uint32_t width, uint32_t height)
@@ -1076,17 +1079,17 @@ void Renderer::createTileTexture(VkImage& texture, VkImageView& textureView, Vma
     imageInfo.format = VK_FORMAT_R8G8B8A8_UINT;
     imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
     imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    imageInfo.usage =  VK_IMAGE_USAGE_STORAGE_BIT;
+    imageInfo.usage =  VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
     imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
     imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
     imageInfo.flags = 0; // Optional
 
     VmaAllocationCreateInfo vmaCreateImageInfo = {};
-    // vmaCreateImageInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
-    // vmaCreateImageInfo.requiredFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
-    vmaCreateImageInfo.usage = VMA_MEMORY_USAGE_CPU_COPY;
-    vmaCreateImageInfo.requiredFlags = VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
-    vmaCreateImageInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT;
+    vmaCreateImageInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+    vmaCreateImageInfo.requiredFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+    // vmaCreateImageInfo.usage = VMA_MEMORY_USAGE_CPU_COPY;
+    // vmaCreateImageInfo.requiredFlags = VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
+    // vmaCreateImageInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT;
     // VmaAllocation allocation;
     vmaCreateImage(getAllocator(), &imageInfo, &vmaCreateImageInfo, &texture, &textureAllocation, &allocationInfo);
 
@@ -1180,6 +1183,9 @@ void Renderer::cleanTileTexture(VkImage& texture, VkImageView& textureView, VmaA
 
 bool Renderer::renderTileSet(VkImage& texture, VkImageView& textureView, TileSet& tileset, TilePalet& palet)
 {
+    auto buffer = std::make_unique<Buffer>(BufferType::StagingBuffer, tileset.getHeight() * tileset.getWidth() * tileset.getMaxSize(), sizeof(uint32_t));
+
+
     std::array<VkDescriptorSetLayoutBinding, 3> layoutBindings{};
     layoutBindings[0].binding = 0;
     layoutBindings[0].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
@@ -1346,7 +1352,55 @@ bool Renderer::renderTileSet(VkImage& texture, VkImageView& textureView, TileSet
     vkCmdBindPipeline(computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, m_render_data.computePipeline);
     vkCmdBindDescriptorSets(computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, m_render_data.computePipelineLayout, 0, 1, &m_render_data.computeDescriptorSet, 0, 0);
 
-    vkCmdDispatch(computeCommandBuffer, 128, 1, 1);
+    vkCmdDispatch(computeCommandBuffer, 2, 1, 1);
+
+    VkBufferMemoryBarrier bufferBarrier{};
+    bufferBarrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
+    bufferBarrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+    bufferBarrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+    bufferBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    bufferBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    bufferBarrier.buffer = buffer->getBuffer();
+    bufferBarrier.offset = 0;
+    bufferBarrier.size = buffer->getSize();
+
+    vkCmdPipelineBarrier(
+        computeCommandBuffer,
+        VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+        VK_PIPELINE_STAGE_TRANSFER_BIT,
+        0,
+        0, nullptr,
+        1, &bufferBarrier,
+        0, nullptr
+    );
+
+    VkBufferImageCopy copyRegion = {
+        .bufferOffset = 0,
+        .bufferRowLength = 0,
+        .bufferImageHeight = 0,
+        .imageSubresource = {
+            .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+            .mipLevel = 0,
+            .baseArrayLayer = 0,
+            .layerCount = 1
+        },
+        .imageOffset = {0, 0, 0},
+        .imageExtent = {
+            static_cast<uint32_t>(tileset.getWidth()),
+            static_cast<uint32_t>(tileset.getHeight() * tileset.getMaxSize()),
+            1
+        }
+    };
+
+    vkCmdCopyImageToBuffer(
+        computeCommandBuffer,
+        texture,
+        VK_IMAGE_LAYOUT_GENERAL,
+        buffer->getBuffer(),
+        1,
+        &copyRegion
+    );
+
 
     if (vkEndCommandBuffer(computeCommandBuffer) != VK_SUCCESS) {
         throw std::runtime_error("failed to record compute command buffer!");
@@ -1364,6 +1418,7 @@ bool Renderer::renderTileSet(VkImage& texture, VkImageView& textureView, TileSet
         throw std::runtime_error("failed to submit compute command buffer!");
     }
 
+    //Should move to a fence and wait on it instead of waiting for the whole queue to be idle
     vkDeviceWaitIdle(m_ctx.device.device);
 
     // Handle image layout transitions
@@ -1375,8 +1430,17 @@ bool Renderer::renderTileSet(VkImage& texture, VkImageView& textureView, TileSet
     m_ctx.disp.destroyDescriptorSetLayout(m_render_data.computeDescriptorSetLayout, nullptr);
     m_ctx.disp.destroyShaderModule(computeShaderModule, nullptr);
     
-
-
+    // for (size_t i = 0; i < tileset.getWidth() * tileset.getHeight() * tileset.getMaxSize(); i++)
+    // {
+    //     uint32_t value = buffer->get(i);
+    //     std::cout << std::dec << "Index " << i << ": ";
+    //     std::cout << std::hex << (value & 0xFF) << " ";
+    //     std::cout << std::hex << ((value >> 8) & 0xFF) << " ";
+    //     std::cout << std::hex << ((value >> 16) & 0xFF) << " ";
+    //     std::cout << std::hex << ((value >> 24) & 0xFF) << " " << std::endl;
+    // }
+    
+    std::cout << "Done!" << std::endl;
 
 
 

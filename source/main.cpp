@@ -240,14 +240,15 @@ int main(int argc, char const *argv[])
         renderer.updateUniformBuffer(ubo);
         // std::cout << "Before render " << std::endl;
         renderer.renderTileSet(texture, textureView, tileset, palet);
-        for (size_t i = 0; i < 128*4; i += 4)
-        {
-            char value_0 = ((char*)allocationInfo.pMappedData)[i]; // Debug write to mapped memory
-            char value_1 = ((char*)allocationInfo.pMappedData)[i+1]; // Debug write to mapped memory
-            char value_2 = ((char*)allocationInfo.pMappedData)[i+2]; // Debug write to mapped memory
-            char value_3 = ((char*)allocationInfo.pMappedData)[i+3]; // Debug write to mapped memory
-            std::cout << "Value at index " << i/4 << ": " << (int)value_0 << ", " << (int)value_1 << ", " << (int)value_2 << ", " << (int)value_3 << std::endl;
-        }
+        dumpTexture(texture, "gpu_texture_dump.bmp");
+        // for (size_t i = 0; i < 128*4; i += 4)
+        // {
+        //     char value_0 = ((char*)allocationInfo.pMappedData)[i]; // Debug write to mapped memory
+        //     char value_1 = ((char*)allocationInfo.pMappedData)[i+1]; // Debug write to mapped memory
+        //     char value_2 = ((char*)allocationInfo.pMappedData)[i+2]; // Debug write to mapped memory
+        //     char value_3 = ((char*)allocationInfo.pMappedData)[i+3]; // Debug write to mapped memory
+        //     std::cout << "Value at index " << i/4 << ": " << (int)value_0 << ", " << (int)value_1 << ", " << (int)value_2 << ", " << (int)value_3 << std::endl;
+        // }
         
         // gpuDump(texture, textureView);
         // std::cout << "After render " << std::endl;
