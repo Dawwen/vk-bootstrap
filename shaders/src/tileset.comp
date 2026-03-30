@@ -23,6 +23,7 @@ void main() {
     uint y = index / 8 + (tile_id * 8 /*gl_WorkGroupSize.x*/);
 
     uint color = palet[tileSet[index + tile_id * gl_WorkGroupSize.x]];
+    // uint color = palet[1];
     imageStore(renderTexture, ivec2(x, y),
                uvec4(color & 0xFF, (color >> 8) & 0xFF, (color >> 16) & 0xFF, (color >> 24) & 0xFF));
 

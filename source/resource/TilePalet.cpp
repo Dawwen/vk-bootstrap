@@ -4,7 +4,7 @@
 
 uint32_t inline getIndexOffset(uint32_t index, ColorDepth depth)
 {
-    return index * ((uint32_t)depth / 8);
+    return index /** ((uint32_t)depth / 8)*/;
 }
 
 TilePalet::TilePalet(ColorDepth depth, uint32_t maxColors) 
@@ -28,6 +28,7 @@ TileColor TilePalet::getColor(uint32_t index)
         SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Accessing the index %d of a palet of size %d.", index, m_currentSize);
         return color;
     }
+    SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Getting color at index %d", getIndexOffset(index, m_colorDepth));
     color.color = m_buffer->get(getIndexOffset(index, m_colorDepth));
     return color;
 }
