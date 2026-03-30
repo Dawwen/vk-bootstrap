@@ -74,7 +74,7 @@ void cpuRender(TileSet& tileset, TilePalet& palet)
     delete[] data_debug;
 }
 
-void gpuDump(TileSet& tileset, TilePalet& palet)
+void dumpTexture(Buffer& buffer, TileSet& tileset)
 {
     int width = tileset.getWidth();
 	int height = tileset.getHeight() * tileset.getMaxSize();
@@ -85,13 +85,19 @@ void gpuDump(TileSet& tileset, TilePalet& palet)
     {
         for (int x = 0; x < width; x++)
         {
-            uint32_t tileValue = tileset.get(y/tileset.getHeight(), x, y);
-            TileColor tc = palet.getColor(tileValue);
             size_t idx = (y * width + x) * 4;
-            data_debug[idx + 0] = tc.r; // R
-            data_debug[idx + 1] = tc.g; // G
-            data_debug[idx + 2] = tc.b; // B
-            data_debug[idx + 3] = tc.a; // A
+            uint32_t color = buffer.get((y * width + x));
+
+            std::cout << std::dec << "Index " << idx/4 << ": ";
+            std::cout << std::hex << (color & 0xFF) << " ";
+            std::cout << std::hex << ((color >> 8) & 0xFF) << " ";
+            std::cout << std::hex << ((color >> 16) & 0xFF) << " ";
+            std::cout << std::hex << ((color >> 24) & 0xFF) << " " << std::endl;
+
+            data_debug[idx + 0] = (color >> 0) & 0xFF; // R
+            data_debug[idx + 1] = (color >> 8) & 0xFF; // G
+            data_debug[idx + 2] = (color >> 16) & 0xFF; // B
+            data_debug[idx + 3] = (color >> 24) & 0xFF; // A
         }
     }
 
@@ -128,17 +134,17 @@ int main(int argc, char const *argv[])
     TilePalet palet {ColorDepth::UINT_32BIT, 16};
     TileColor color;
     // color.color = 0xFFFFFFFF;
-    color.color = 0xFF00FF00;
+    color.color = 0x7F007F00;
 
     palet.addColor(color);
     std::cout << "Added color: " << std::hex << color.color << std::dec << std::endl;
-    std::cout << "Added color: " << std::hex << palet.getColor(0).color << std::dec << std::endl;
+    std::cout << "Check added color: " << std::hex << palet.getColor(0).color << std::dec << std::endl;
     
-    color.color = 0xFFFF00FF;
+    color.color = 0x7FFF007F;
 
     palet.addColor(color);
     std::cout << "Added color: " << std::hex << color.color << std::dec << std::endl;
-    std::cout << "Added color: " << std::hex << palet.getColor(1).color << std::dec << std::endl;
+    std::cout << "Check added color: " << std::hex << palet.getColor(1).color << std::dec << std::endl;
     
     uint32_t WIDTH = 8;
     uint32_t MAX_TILES = 2;
@@ -182,6 +188,8 @@ int main(int argc, char const *argv[])
     VkImageView textureView;
     VmaAllocation textureAllocation;
     VmaAllocationInfo allocationInfo;
+    Buffer buffer (BufferType::StagingBuffer, tileset.getHeight() * tileset.getWidth() * tileset.getMaxSize(), sizeof(uint32_t));
+
 
     renderer.createTileTexture(texture, textureView, textureAllocation, allocationInfo, tileset, palet);
 
@@ -239,8 +247,8 @@ int main(int argc, char const *argv[])
         calculateNewUniformBuffer(ubo, SCREEN_WIDTH, SCREEN_HEIGHT, scale);
         renderer.updateUniformBuffer(ubo);
         // std::cout << "Before render " << std::endl;
-        renderer.renderTileSet(texture, textureView, tileset, palet);
-        dumpTexture(texture, "gpu_texture_dump.bmp");
+        renderer.renderTileSet(buffer, texture, textureView, tileset, palet);
+        dumpTexture(buffer, tileset);
         // for (size_t i = 0; i < 128*4; i += 4)
         // {
         //     char value_0 = ((char*)allocationInfo.pMappedData)[i]; // Debug write to mapped memory

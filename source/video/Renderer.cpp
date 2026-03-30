@@ -1181,11 +1181,8 @@ void Renderer::cleanTileTexture(VkImage& texture, VkImageView& textureView, VmaA
     vmaDestroyImage(getAllocator(), texture, textureAllocation);
 }
 
-bool Renderer::renderTileSet(VkImage& texture, VkImageView& textureView, TileSet& tileset, TilePalet& palet)
+bool Renderer::renderTileSet(Buffer& buffer, VkImage& texture, VkImageView& textureView, TileSet& tileset, TilePalet& palet)
 {
-    auto buffer = std::make_unique<Buffer>(BufferType::StagingBuffer, tileset.getHeight() * tileset.getWidth() * tileset.getMaxSize(), sizeof(uint32_t));
-
-
     std::array<VkDescriptorSetLayoutBinding, 3> layoutBindings{};
     layoutBindings[0].binding = 0;
     layoutBindings[0].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
@@ -1360,9 +1357,9 @@ bool Renderer::renderTileSet(VkImage& texture, VkImageView& textureView, TileSet
     bufferBarrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
     bufferBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
     bufferBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    bufferBarrier.buffer = buffer->getBuffer();
+    bufferBarrier.buffer = buffer.getBuffer();
     bufferBarrier.offset = 0;
-    bufferBarrier.size = buffer->getSize();
+    bufferBarrier.size = buffer.getSize();
 
     vkCmdPipelineBarrier(
         computeCommandBuffer,
@@ -1396,7 +1393,7 @@ bool Renderer::renderTileSet(VkImage& texture, VkImageView& textureView, TileSet
         computeCommandBuffer,
         texture,
         VK_IMAGE_LAYOUT_GENERAL,
-        buffer->getBuffer(),
+        buffer.getBuffer(),
         1,
         &copyRegion
     );

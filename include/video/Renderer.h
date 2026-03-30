@@ -44,7 +44,7 @@ class Renderer
         bool recordCommandBuffer();
         void createTileTexture(VkImage &texture, VkImageView &textureView, VmaAllocation &textureAllocation, VmaAllocationInfo& allocationInfo, TileSet &tileset, TilePalet &palet);
         void cleanTileTexture(VkImage& texture, VkImageView& textureView, VmaAllocation& textureAllocation);
-        bool renderTileSet(VkImage &texture, VkImageView& textureView, TileSet &tileset, TilePalet &palet);
+        bool renderTileSet(Buffer& buffer, VkImage &texture, VkImageView& textureView, TileSet &tileset, TilePalet &palet);
 };
 
 #endif //RENDERER_H
