@@ -157,7 +157,7 @@ int main(int argc, char const *argv[])
                 }
                 else
                 {
-                    uint32_t value = 1;
+                    uint32_t value = (i == 0 || i == tileset.getHeight() - 1 || j == 0 || j == tileset.getWidth() - 1) ? 1 : 0;
                     tileset.set(k, j, i, value);
                 }
             }
