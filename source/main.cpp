@@ -88,12 +88,6 @@ void dumpTexture(Buffer& buffer, TileSet& tileset)
             size_t idx = (y * width + x) * 4;
             uint32_t color = buffer.get((y * width + x));
 
-            std::cout << std::dec << "Index " << idx/4 << ": ";
-            std::cout << std::hex << (color & 0xFF) << " ";
-            std::cout << std::hex << ((color >> 8) & 0xFF) << " ";
-            std::cout << std::hex << ((color >> 16) & 0xFF) << " ";
-            std::cout << std::hex << ((color >> 24) & 0xFF) << " " << std::endl;
-
             data_debug[idx + 0] = (color >> 0) & 0xFF; // R
             data_debug[idx + 1] = (color >> 8) & 0xFF; // G
             data_debug[idx + 2] = (color >> 16) & 0xFF; // B

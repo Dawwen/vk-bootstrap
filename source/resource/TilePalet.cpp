@@ -28,7 +28,6 @@ TileColor TilePalet::getColor(uint32_t index)
         SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Accessing the index %d of a palet of size %d.", index, m_currentSize);
         return color;
     }
-    SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Getting color at index %d", getIndexOffset(index, m_colorDepth));
     color.color = m_buffer->get(getIndexOffset(index, m_colorDepth));
     return color;
 }
