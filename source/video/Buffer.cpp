@@ -119,7 +119,7 @@ bool Buffer::copyTo(VulkanContext& ctx, Buffer& src, Buffer& dst)
     VkCommandBufferAllocateInfo allocInfo{};
     allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
     allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-    allocInfo.commandPool = ctx.command_pool;
+    allocInfo.commandPool = ctx.graphics_command_pool;
     allocInfo.commandBufferCount = 1;
 
     VkCommandBuffer commandBuffer;
@@ -145,6 +145,6 @@ bool Buffer::copyTo(VulkanContext& ctx, Buffer& src, Buffer& dst)
     vkQueueSubmit(ctx.graphics_queue, 1, &submitInfo, VK_NULL_HANDLE);
     vkQueueWaitIdle(ctx.graphics_queue);
 
-    vkFreeCommandBuffers(ctx.device.device, ctx.command_pool, 1, &commandBuffer);
+    vkFreeCommandBuffers(ctx.device.device, ctx.graphics_command_pool, 1, &commandBuffer);
     return false;
 }

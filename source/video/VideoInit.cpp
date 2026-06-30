@@ -4,6 +4,22 @@
 
 // Section: SDL
 
+
+// Utils
+
+VkSurfaceKHR create_surface(VkInstance instance, SDL_Window* window, VkAllocationCallbacks* allocator = nullptr) {
+    VkSurfaceKHR surface = VK_NULL_HANDLE;
+    auto res = SDL_Vulkan_CreateSurface(window, instance, allocator, &surface);
+    if (!res)
+    {
+        SDL_LogError(SDL_LOG_CATEGORY_VIDEO, "Couldn't create SDL Surface");
+        surface = VK_NULL_HANDLE;
+    }
+    return surface;
+}
+
+// Main SDL functions
+
 bool InitSDL(SDL_init_t& init, SDL_ctx_t& ctx)
 {
     SDL_SetAppMetadata(init.app_name, init.app_version, init.app_identifier);
@@ -28,19 +44,42 @@ void DestroySDL(SDL_ctx_t& ctx)
     SDL_Quit();
 }
 
-VkSurfaceKHR create_surface(VkInstance instance, SDL_Window* window, VkAllocationCallbacks* allocator) {
-    VkSurfaceKHR surface = VK_NULL_HANDLE;
-    auto res = SDL_Vulkan_CreateSurface(window, instance, allocator, &surface);
-    if (!res)
-    {
-        SDL_LogError(SDL_LOG_CATEGORY_VIDEO, "Couldn't create SDL Surface");
-        surface = VK_NULL_HANDLE;
-    }
-    return surface;
-}
 
 
 // Section: Vulkan
+
+// Utils
+
+bool get_vulkan_queues(VulkanContext& ctx)
+{
+    auto gq = ctx.device.get_queue(vkb::QueueType::graphics);
+    if (!gq.has_value())
+    {
+        SDL_LogError(SDL_LOG_CATEGORY_VIDEO, gq.error().message().c_str());
+        return true;
+    }
+    ctx.graphics_queue = gq.value();
+
+    auto pq = ctx.device.get_queue(vkb::QueueType::present);
+    if (!pq.has_value())
+    {
+        SDL_LogError(SDL_LOG_CATEGORY_VIDEO, pq.error().message().c_str());
+        return true;
+    }
+    ctx.present_queue = pq.value();
+
+    auto cq = ctx.device.get_queue(vkb::QueueType::compute);
+    if (!cq.has_value())
+    {
+        SDL_LogError(SDL_LOG_CATEGORY_VIDEO, cq.error().message().c_str());
+        return true;
+    }
+    ctx.compute_queue = cq.value();
+
+    return false;
+}
+
+// Main Vulkan functions
 
 bool InitVulkan(const Vulkan_init_t& init, VulkanContext& ctx)
 {
@@ -89,12 +128,45 @@ bool InitVulkan(const Vulkan_init_t& init, VulkanContext& ctx)
     ctx.device = device_ret.value();
     ctx.disp = ctx.device.make_table();
 
+    if (get_vulkan_queues(ctx))
+    {
+        SDL_LogError(SDL_LOG_CATEGORY_VIDEO, "Failed to get Vulkan queues");
+        return true;
+    }
+
+    VkCommandPoolCreateInfo graphics_pool_info = {};
+    graphics_pool_info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+    graphics_pool_info.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+    graphics_pool_info.queueFamilyIndex = ctx.device.get_queue_index(vkb::QueueType::graphics).value();
+
+    if (ctx.disp.createCommandPool(&graphics_pool_info, nullptr, &ctx.graphics_command_pool) != VK_SUCCESS)\
+    {
+        SDL_LogError(SDL_LOG_CATEGORY_VIDEO, "failed to create command pool");
+        return true;
+    }
+
+
+    VkCommandPoolCreateInfo compute_pool_info = {};
+    compute_pool_info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+    compute_pool_info.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+    compute_pool_info.queueFamilyIndex = ctx.device.get_queue_index(vkb::QueueType::compute).value();
+
+    if (ctx.disp.createCommandPool(&compute_pool_info, nullptr, &ctx.compute_command_pool) != VK_SUCCESS)\
+    {
+        SDL_LogError(SDL_LOG_CATEGORY_VIDEO, "failed to create command pool");
+        return true;
+    }
+
     createAllocator(init.vma_api_version, ctx);
     return false;
 }
 
 void DestroyVulkan(VulkanContext& ctx)
 {
+
+    vkDestroyCommandPool(ctx.device.device, ctx.graphics_command_pool, nullptr);
+    vkDestroyCommandPool(ctx.device.device, ctx.compute_command_pool, nullptr);
+
     destroyAllocator();
     vkb::destroy_device(ctx.device);
     vkb::destroy_surface(ctx.instance, ctx.surface);

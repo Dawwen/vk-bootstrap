@@ -68,7 +68,6 @@ struct Vulkan_init
 
 bool InitSDL(SDL_init_t& init, SDL_ctx_t& ctx);
 void DestroySDL(SDL_ctx_t& ctx);
-VkSurfaceKHR create_surface(VkInstance instance, SDL_Window* window, VkAllocationCallbacks* allocator = nullptr);
 bool InitVulkan(const Vulkan_init_t& init, VulkanContext& ctx);
 void DestroyVulkan(VulkanContext& ctx);
 

@@ -1,15 +1,17 @@
 #ifndef VULKAN_APP_H
 #define VULKAN_APP_H
 
-#include "video/vulkan_context.h"
+#include <memory>
+using std::shared_ptr;
 
+#include "video/vulkan_context.h"
 class VulkanApp {
     public:
-        VulkanApp(VulkanContext& ctx);
+        VulkanApp(shared_ptr<VulkanContext> ctx);
         ~VulkanApp();
 
-    private:
-        VulkanContext& ctx;
+    protected:
+        shared_ptr<VulkanContext> m_ctx;
 };
 
 #endif // VULKAN_APP_H

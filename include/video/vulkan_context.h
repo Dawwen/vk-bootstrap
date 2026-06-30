@@ -13,10 +13,14 @@ struct VulkanContext {
     vkb::Device device;
     vkb::DispatchTable disp;
     // vkb::Swapchain swapchain;
-    VkCommandPool command_pool;
 
     VkQueue graphics_queue;
+    VkCommandPool graphics_command_pool;
+
     VkQueue present_queue;
+
+    VkQueue compute_queue;
+    VkCommandPool compute_command_pool;
 
     SDL_Window* window;
 };

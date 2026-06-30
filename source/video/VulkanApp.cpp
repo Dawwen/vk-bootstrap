@@ -1,6 +1,6 @@
 #include "video/VulkanApp.h"
 
-VulkanApp::VulkanApp(VulkanContext& ctx) : ctx(ctx)
+VulkanApp::VulkanApp(shared_ptr<VulkanContext> ctx) : m_ctx(ctx)
 {
     // Initialize Vulkan resources here
 }
