@@ -2,9 +2,9 @@
 #define VMA_USAGE_H
 
 #include <vk_mem_alloc.h>
-#include "video/renderer_struct.h"
+#include "video/vulkan_context.h"
 
-bool createAllocator(VulkanContext ctx);
+bool createAllocator(uint32_t apiVersion, VulkanContext ctx);
 VmaAllocator& getAllocator();
 bool destroyAllocator();
 

@@ -3,7 +3,7 @@
 
 #include <vk_mem_alloc.h>
 
-#include "video/renderer_struct.h"
+#include "video/vulkan_context.h"
 
 enum BufferType
 {

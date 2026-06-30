@@ -1,5 +1,5 @@
 #define VMA_IMPLEMENTATION
-#define VMA_VULKAN_VERSION 1002000 // Vulkan 1.2
+// #define VMA_VULKAN_VERSION 1002000 // Vulkan 1.2
 
 #define VMA_STATIC_VULKAN_FUNCTIONS 0
 #define VMA_DYNAMIC_VULKAN_FUNCTIONS 1
@@ -8,21 +8,21 @@
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_vulkan.h>
 
-#include "video/renderer_struct.h"
+#include "video/vulkan_context.h"
 #include "video/VmaUsage.h"
 
 static bool allocatorCreated = false;
 static VmaVulkanFunctions vulkanFunctions {};
 static VmaAllocator allocator;
 
-bool createAllocator(VulkanContext ctx)
+bool createAllocator(uint32_t apiVersion, VulkanContext ctx)
 {
     vulkanFunctions.vkGetInstanceProcAddr = (PFN_vkGetInstanceProcAddr)SDL_Vulkan_GetVkGetInstanceProcAddr();
     vulkanFunctions.vkGetDeviceProcAddr = &vkGetDeviceProcAddr;
 
     VmaAllocatorCreateInfo allocatorCreateInfo = {};
     allocatorCreateInfo.flags = VMA_ALLOCATOR_CREATE_EXT_MEMORY_BUDGET_BIT;
-    allocatorCreateInfo.vulkanApiVersion = VK_API_VERSION_1_2;
+    allocatorCreateInfo.vulkanApiVersion = apiVersion;
     allocatorCreateInfo.physicalDevice = ctx.device.physical_device;
     allocatorCreateInfo.device = ctx.device.device;
     allocatorCreateInfo.instance = ctx.instance;

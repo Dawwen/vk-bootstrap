@@ -7,17 +7,18 @@
 
 
 struct VulkanContext {
-    SDL_Window* window;
     vkb::Instance instance;
     vkb::InstanceDispatchTable inst_disp;
     VkSurfaceKHR surface;
     vkb::Device device;
     vkb::DispatchTable disp;
-    vkb::Swapchain swapchain;
+    // vkb::Swapchain swapchain;
     VkCommandPool command_pool;
 
     VkQueue graphics_queue;
     VkQueue present_queue;
+
+    SDL_Window* window;
 };
 
 #endif //RENDERER_STRUCT_H

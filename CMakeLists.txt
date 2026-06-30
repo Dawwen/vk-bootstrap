@@ -27,6 +27,8 @@ add_executable(MyExample
                     source/resource/TileSet.cpp
                     source/resource/TilePalet.cpp
 
+                    source/video/VideoInit.cpp
+                    source/video/VulkanApp.cpp
                     source/video/Renderer.cpp
                     source/video/VmaUsage.cpp
                     source/video/Buffer.cpp
