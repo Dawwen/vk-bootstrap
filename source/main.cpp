@@ -75,8 +75,8 @@ int main(int argc, char const *argv[])
     {
         TilePalet palet {ColorDepth::UINT_32BIT, 16};
         TileColor color;
-        // color.color = 0xFF00FF00;
-        color.color = 0xFFFFFF00;
+        color.color = 0xFF00FF00;
+        // color.color = 0xFFFFFF00;
 
         palet.addColor(color);
         
@@ -110,8 +110,9 @@ int main(int argc, char const *argv[])
         
         Buffer buffer (BufferType::StagingBuffer, tileset.getHeight() * tileset.getWidth() * tileset.getMaxSize(), sizeof(uint32_t));
 
-        TileApp app(ctx, tileset, palet);
+        TileApp app(ctx);
         app.init();
+        app.addResource(tileset, palet);
         app.run(buffer);
         dumpTexture(buffer, tileset);
     }

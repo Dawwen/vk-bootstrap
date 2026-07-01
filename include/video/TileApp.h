@@ -20,12 +20,13 @@ struct Resource
     VkImageView textureView;
     VmaAllocation textureAllocation;
     VmaAllocationInfo allocationInfo;
+    VkDescriptorSet computeDescriptorSet;
 } typedef Resource_t;
 
 class TileApp : public VulkanApp
 {
     public:
-        TileApp(shared_ptr<VulkanContext> ctx, TileSet& tileset, TilePalet& palet);
+        TileApp(shared_ptr<VulkanContext> ctx);
         ~TileApp();
 
         bool init();
@@ -33,14 +34,14 @@ class TileApp : public VulkanApp
         bool addResource(TileSet& tileSet, TilePalet& palet);
 
     private:
-        std::vector<Resource_t> resources;
+        static constexpr uint32_t MAX_RESOURCES = 16;
 
+        std::vector<Resource_t> resources;
 
         VkPipeline computePipeline;
         VkPipelineLayout computePipelineLayout;
 
         VkDescriptorSetLayout computeDescriptorSetLayout;
-        VkDescriptorSet computeDescriptorSet;
         VkDescriptorPool computeDescriptorPool;
 };
 
