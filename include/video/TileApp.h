@@ -9,6 +9,19 @@
 #include <memory>
 using std::shared_ptr;
 
+#include <vector>
+
+
+struct Resource
+{
+    TileSet& tileset;
+    TilePalet& palet;
+    VkImage texture;
+    VkImageView textureView;
+    VmaAllocation textureAllocation;
+    VmaAllocationInfo allocationInfo;
+} typedef Resource_t;
+
 class TileApp : public VulkanApp
 {
     public:
@@ -17,15 +30,10 @@ class TileApp : public VulkanApp
 
         bool init();
         bool run(Buffer& buffer);
+        bool addResource(TileSet& tileSet, TilePalet& palet);
 
     private:
-        // Add any TileApp specific members here
-        VkImage texture;
-        VkImageView textureView;
-        VmaAllocation textureAllocation;
-        VmaAllocationInfo allocationInfo;
-        TileSet& tileset;
-        TilePalet& palet;
+        std::vector<Resource_t> resources;
 
 
         VkPipeline computePipeline;

@@ -4,6 +4,8 @@
 
 #include <array>
 #include <vector>
+using std::vector;
+
 #include <fstream>
 
 #define SHADER_FOLDER "../shaders/"
@@ -53,12 +55,28 @@ TileApp::TileApp(shared_ptr<VulkanContext> ctx, TileSet& tileset, TilePalet& pal
 
 TileApp::~TileApp()
 {
-    m_ctx->disp.destroyImageView(textureView, nullptr);
-    vmaDestroyImage(getAllocator(), texture, textureAllocation);
+
+    for (Resource_t resource: resources)
+    {
+        m_ctx->disp.destroyImageView(resource.textureView, nullptr);
+        vmaDestroyImage(getAllocator(), resource.texture, resource.textureAllocation);
+    }
 }
 
 bool TileApp::init()
 {
+   
+
+    return true;
+}
+
+bool TileApp::addResource(TileSet& tileset, TilePalet& palet)
+{
+    VkImage texture;
+    VkImageView textureView;
+    VmaAllocation textureAllocation;
+    VmaAllocationInfo allocationInfo;
+
     VkImageCreateInfo imageInfo{};
     imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
     imageInfo.imageType = VK_IMAGE_TYPE_2D;
@@ -165,6 +183,16 @@ bool TileApp::init()
     m_ctx->disp.queueWaitIdle(m_ctx->compute_queue);
     m_ctx->disp.freeCommandBuffers(m_ctx->compute_command_pool, 1, &commandBuffer);
 
+    Resource_t resource {
+        tileset: tileset,
+        palet: palet,
+        texture: texture,
+        textureView: textureView,
+        textureAllocation: textureAllocation,
+        allocationInfo: allocationInfo
+    };
+
+    resources.push_back(resource);
     return true;
 }
 
@@ -338,6 +366,7 @@ bool TileApp::run(Buffer& buffer)
 
     vkCmdDispatch(computeCommandBuffer, 2, 1, 1);
 
+    
     VkBufferMemoryBarrier bufferBarrier{};
     bufferBarrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
     bufferBarrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
