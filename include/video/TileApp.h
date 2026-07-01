@@ -30,7 +30,7 @@ class TileApp : public VulkanApp
         ~TileApp();
 
         bool init();
-        bool run(Buffer& buffer);
+        bool run(std::vector<Buffer*> buffers);
         bool addResource(TileSet& tileSet, TilePalet& palet);
 
     private:

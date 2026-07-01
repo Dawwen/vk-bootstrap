@@ -11,7 +11,7 @@ using std::shared_ptr;
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb_image_write.h"
 
-void dumpTexture(Buffer& buffer, TileSet& tileset)
+void dumpTexture(const char* filename, Buffer& buffer, TileSet& tileset)
 {
     int width = tileset.getWidth();
 	int height = tileset.getHeight() * tileset.getMaxSize();
@@ -33,7 +33,7 @@ void dumpTexture(Buffer& buffer, TileSet& tileset)
     }
 
     // stbi_flip_vertically_on_write(1);
-    stbi_write_bmp("gpu_render.bmp", width, height, 4, data_debug);
+    stbi_write_bmp(filename, width, height, 4, data_debug);
     delete[] data_debug;
 }
 
@@ -73,48 +73,98 @@ int main(int argc, char const *argv[])
     }
 
     {
-        TilePalet palet {ColorDepth::UINT_32BIT, 16};
+        TilePalet palet_1 {ColorDepth::UINT_32BIT, 16};
         TileColor color;
-        color.color = 0xFF00FF00;
         // color.color = 0xFFFFFF00;
-
-        palet.addColor(color);
+        color.color = 0xFF00FF00;
+        palet_1.addColor(color);
         
         color.color = 0xFFFF00FF;
-
-        palet.addColor(color);
+        palet_1.addColor(color);
         
         uint32_t WIDTH = 8;
         uint32_t MAX_TILES = 2;
-        TileSet tileset {WIDTH, MAX_TILES};
+        TileSet tileset_1 {WIDTH, MAX_TILES};
 
         for (size_t k = 0; k < MAX_TILES; k++)
         {   
-            for (size_t i = 0; i < tileset.getHeight(); i++)
+            for (size_t i = 0; i < tileset_1.getHeight(); i++)
             {
-                for (size_t j = 0; j < tileset.getWidth(); j++)
+                for (size_t j = 0; j < tileset_1.getWidth(); j++)
                 {
                     if (k == 0)
                     {
                         uint32_t value = (j%2 + i%2)%2 ;
-                        tileset.set(k, j, i, value);
+                        tileset_1.set(k, j, i, value);
                     }
                     else
                     {
-                        uint32_t value = (i == 0 || i == tileset.getHeight() - 1 || j == 0 || j == tileset.getWidth() - 1) ? 1 : 0;
-                        tileset.set(k, j, i, value);
+                        uint32_t value = (i == 0 || i == tileset_1.getHeight() - 1 || j == 0 || j == tileset_1.getWidth() - 1) ? 1 : 0;
+                        tileset_1.set(k, j, i, value);
                     }
                 }
             }
         }
+
+        TilePalet palet_2 {ColorDepth::UINT_32BIT, 16};
+        color.color = 0xFFFFFF00;
+        palet_2.addColor(color);
         
-        Buffer buffer (BufferType::StagingBuffer, tileset.getHeight() * tileset.getWidth() * tileset.getMaxSize(), sizeof(uint32_t));
+        color.color = 0x000000FF;
+        palet_2.addColor(color);
+        
+
+        TileSet tileset_2 {WIDTH, MAX_TILES};
+
+        for (size_t k = 0; k < MAX_TILES; k++)
+        {   
+            for (size_t i = 0; i < tileset_2.getHeight(); i++)
+            {
+                for (size_t j = 0; j < tileset_2.getWidth(); j++)
+                {
+                    if (k == 0)
+                    {
+                        uint32_t value = i%2 ;
+                        tileset_2.set(k, j, i, value);
+                    }
+                    else
+                    {
+                        uint32_t value = j%2;
+                        tileset_2.set(k, j, i, value);
+                    }
+                }
+            }
+        }
+
+        Buffer buffer_0 (BufferType::StagingBuffer, tileset_1.getHeight() * tileset_1.getWidth() * tileset_1.getMaxSize(), sizeof(uint32_t));
+        Buffer buffer_1 (BufferType::StagingBuffer, tileset_1.getHeight() * tileset_1.getWidth() * tileset_1.getMaxSize(), sizeof(uint32_t));
+        Buffer buffer_2 (BufferType::StagingBuffer, tileset_2.getHeight() * tileset_2.getWidth() * tileset_2.getMaxSize(), sizeof(uint32_t));
+        Buffer buffer_3 (BufferType::StagingBuffer, tileset_2.getHeight() * tileset_2.getWidth() * tileset_2.getMaxSize(), sizeof(uint32_t));
+
 
         TileApp app(ctx);
+        std::vector<Buffer*> buffers;
+
         app.init();
-        app.addResource(tileset, palet);
-        app.run(buffer);
-        dumpTexture(buffer, tileset);
+
+        app.addResource(tileset_1, palet_1);
+        buffers.push_back(&buffer_0);
+
+        app.addResource(tileset_1, palet_2);
+        buffers.push_back(&buffer_1);
+        
+        app.addResource(tileset_2, palet_1);
+        buffers.push_back(&buffer_2);
+        
+        app.addResource(tileset_2, palet_2);
+        buffers.push_back(&buffer_3);
+        
+        app.run(buffers);
+
+        dumpTexture("gpu_render_0.bmp", buffer_0, tileset_1);
+        dumpTexture("gpu_render_1.bmp", buffer_1, tileset_1);
+        dumpTexture("gpu_render_2.bmp", buffer_2, tileset_1);
+        dumpTexture("gpu_render_3.bmp", buffer_3, tileset_1);
     }
 
     DestroyVulkan(*ctx);

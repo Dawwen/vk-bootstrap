@@ -7,6 +7,7 @@
 using std::vector;
 
 #include <fstream>
+#include <iostream>
 
 #define SHADER_FOLDER "../shaders/"
 
@@ -161,6 +162,8 @@ bool TileApp::init()
 
 bool TileApp::addResource(TileSet& tileset, TilePalet& palet)
 {
+    std::cout << "Adding Resource " << std::endl;
+
     VkImage texture;
     VkImageView textureView;
     VmaAllocation textureAllocation;
@@ -315,25 +318,33 @@ bool TileApp::addResource(TileSet& tileset, TilePalet& palet)
     m_ctx->disp.updateDescriptorSets(static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
 
     Resource_t resource {
-        tileset: tileset,
-        palet: palet,
-        texture: texture,
-        textureView: textureView,
-        textureAllocation: textureAllocation,
-        allocationInfo: allocationInfo,
-        computeDescriptorSet: descriptorSet
+        .tileset = tileset,
+        .palet = palet,
+        .texture = texture,
+        .textureView = textureView,
+        .textureAllocation = textureAllocation,
+        .allocationInfo = allocationInfo,
+        .computeDescriptorSet = descriptorSet
     };
 
     resources.push_back(resource);
+
+    std::cout << "Finished Adding Resource " << std::endl;
+
     return true;
 }
 
-bool TileApp::run(Buffer& buffer)
+bool TileApp::run(std::vector<Buffer*> buffers)
 {
+    std::cout << "Run " << std::endl;
+
     if (resources.empty())
         return false;
 
-    Resource_t& resource = resources[0];
+    if (resources.size() != buffers.size())
+    {
+        SDL_LogError(SDL_LOG_CATEGORY_VIDEO, "Different number of buffer to the number a resource to export");
+    }
 
     VkCommandBufferAllocateInfo allocInfo{};
     allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
@@ -351,58 +362,67 @@ bool TileApp::run(Buffer& buffer)
     if (m_ctx->disp.beginCommandBuffer(computeCommandBuffer, &beginInfo) != VK_SUCCESS)
         throw std::runtime_error("failed to begin recording command buffer!");
 
-    vkCmdBindPipeline(computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, computePipeline);
-    vkCmdBindDescriptorSets(computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, computePipelineLayout, 0, 1, &resource.computeDescriptorSet, 0, 0);
+    for (uint32_t i = 0; i < resources.size(); i++)
+    {
+        std::cout << "Working on resource " << i << std::endl;
 
-    vkCmdDispatch(computeCommandBuffer, 2, 1, 1);
+        Resource_t& resource = resources[i];
+        Buffer* buffer = buffers[i];
 
-    VkBufferMemoryBarrier bufferBarrier{};
-    bufferBarrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
-    bufferBarrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
-    bufferBarrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
-    bufferBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    bufferBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    bufferBarrier.buffer = buffer.getBuffer();
-    bufferBarrier.offset = 0;
-    bufferBarrier.size = buffer.getSize();
+        vkCmdBindPipeline(computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, computePipeline);
+        vkCmdBindDescriptorSets(computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, computePipelineLayout, 0, 1, &resource.computeDescriptorSet, 0, 0);
 
-    vkCmdPipelineBarrier(
-        computeCommandBuffer,
-        VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-        VK_PIPELINE_STAGE_TRANSFER_BIT,
-        0,
-        0, nullptr,
-        1, &bufferBarrier,
-        0, nullptr
-    );
+        vkCmdDispatch(computeCommandBuffer, 2, 1, 1);
 
-    VkBufferImageCopy copyRegion = {
-        .bufferOffset = 0,
-        .bufferRowLength = 0,
-        .bufferImageHeight = 0,
-        .imageSubresource = {
-            .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-            .mipLevel = 0,
-            .baseArrayLayer = 0,
-            .layerCount = 1
-        },
-        .imageOffset = {0, 0, 0},
-        .imageExtent = {
-            static_cast<uint32_t>(resource.tileset.getWidth()),
-            static_cast<uint32_t>(resource.tileset.getHeight() * resource.tileset.getMaxSize()),
-            1
-        }
-    };
+        VkBufferMemoryBarrier bufferBarrier{};
+        bufferBarrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
+        bufferBarrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+        bufferBarrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+        bufferBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        bufferBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        bufferBarrier.buffer = buffer->getBuffer();
+        bufferBarrier.offset = 0;
+        bufferBarrier.size = buffer->getSize();
 
-    vkCmdCopyImageToBuffer(
-        computeCommandBuffer,
-        resource.texture,
-        VK_IMAGE_LAYOUT_GENERAL,
-        buffer.getBuffer(),
-        1,
-        &copyRegion
-    );
+        vkCmdPipelineBarrier(
+            computeCommandBuffer,
+            VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+            VK_PIPELINE_STAGE_TRANSFER_BIT,
+            0,
+            0, nullptr,
+            1, &bufferBarrier,
+            0, nullptr
+        );
 
+        VkBufferImageCopy copyRegion = {
+            .bufferOffset = 0,
+            .bufferRowLength = 0,
+            .bufferImageHeight = 0,
+            .imageSubresource = {
+                .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                .mipLevel = 0,
+                .baseArrayLayer = 0,
+                .layerCount = 1
+            },
+            .imageOffset = {0, 0, 0},
+            .imageExtent = {
+                static_cast<uint32_t>(resource.tileset.getWidth()),
+                static_cast<uint32_t>(resource.tileset.getHeight() * resource.tileset.getMaxSize()),
+                1
+            }
+        };
+
+        vkCmdCopyImageToBuffer(
+            computeCommandBuffer,
+            resource.texture,
+            VK_IMAGE_LAYOUT_GENERAL,
+            buffer->getBuffer(),
+            1,
+            &copyRegion
+        );
+
+    }
+    std::cout << "Ending command buffer" << std::endl;
     if (vkEndCommandBuffer(computeCommandBuffer) != VK_SUCCESS)
         throw std::runtime_error("failed to record compute command buffer!");
 
