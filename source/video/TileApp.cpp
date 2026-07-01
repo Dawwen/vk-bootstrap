@@ -7,7 +7,6 @@
 using std::vector;
 
 #include <fstream>
-#include <iostream>
 
 #define SHADER_FOLDER "../shaders/"
 
@@ -162,8 +161,6 @@ bool TileApp::init()
 
 bool TileApp::addResource(TileSet& tileset, TilePalet& palet)
 {
-    std::cout << "Adding Resource " << std::endl;
-
     VkImage texture;
     VkImageView textureView;
     VmaAllocation textureAllocation;
@@ -328,16 +325,11 @@ bool TileApp::addResource(TileSet& tileset, TilePalet& palet)
     };
 
     resources.push_back(resource);
-
-    std::cout << "Finished Adding Resource " << std::endl;
-
     return true;
 }
 
 bool TileApp::run(std::vector<Buffer*> buffers)
 {
-    std::cout << "Run " << std::endl;
-
     if (resources.empty())
         return false;
 
@@ -364,8 +356,6 @@ bool TileApp::run(std::vector<Buffer*> buffers)
 
     for (uint32_t i = 0; i < resources.size(); i++)
     {
-        std::cout << "Working on resource " << i << std::endl;
-
         Resource_t& resource = resources[i];
         Buffer* buffer = buffers[i];
 
@@ -422,7 +412,6 @@ bool TileApp::run(std::vector<Buffer*> buffers)
         );
 
     }
-    std::cout << "Ending command buffer" << std::endl;
     if (vkEndCommandBuffer(computeCommandBuffer) != VK_SUCCESS)
         throw std::runtime_error("failed to record compute command buffer!");
 

@@ -70,14 +70,13 @@ bool get_vulkan_queues(VulkanContext& ctx)
     }
     ctx.present_queue = pq.value();
 
-    // std::cout << "Looking for compute" << std::endl;
-    // auto cq = ctx.device.get_queue(vkb::QueueType::compute);
-    // if (!cq.has_value())
-    // {
-    //     SDL_LogError(SDL_LOG_CATEGORY_VIDEO, cq.error().message().c_str());
-    //     return true;
-    // }
-    ctx.compute_queue = gq.value();
+    auto cq = ctx.device.get_queue(vkb::QueueType::compute);
+    if (!cq.has_value())
+    {
+        SDL_LogError(SDL_LOG_CATEGORY_VIDEO, cq.error().message().c_str());
+        return true;
+    }
+    ctx.compute_queue = cq.value();
     std::cout << "Found compute" << std::endl;
 
     return false;
@@ -154,7 +153,7 @@ bool InitVulkan(const Vulkan_init_t& init, VulkanContext& ctx)
     VkCommandPoolCreateInfo compute_pool_info = {};
     compute_pool_info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
     compute_pool_info.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-    compute_pool_info.queueFamilyIndex = ctx.device.get_queue_index(vkb::QueueType::graphics).value();
+    compute_pool_info.queueFamilyIndex = ctx.device.get_queue_index(vkb::QueueType::compute).value();
 
     if (ctx.disp.createCommandPool(&compute_pool_info, nullptr, &ctx.compute_command_pool) != VK_SUCCESS)\
     {
