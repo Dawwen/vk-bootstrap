@@ -11,6 +11,9 @@ class VulkanApp {
         ~VulkanApp();
 
     protected:
+        static VkShaderModule createShaderModule(VulkanContext& ctx, const std::vector<char>& code);
+        static std::vector<char> readFile(const std::string& filename);    
+
         shared_ptr<VulkanContext> m_ctx;
 };
 
