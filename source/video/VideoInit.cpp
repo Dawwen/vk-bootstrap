@@ -111,8 +111,29 @@ bool InitVulkan(const Vulkan_init_t& init, VulkanContext& ctx)
         return true;
     }
 
+    VkPhysicalDeviceVulkan11Features required_features_11 = {};
+    required_features_11.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES;
+    required_features_11.shaderDrawParameters = VK_TRUE;
+
+    VkPhysicalDeviceVulkan13Features required_features_13 = {};
+    required_features_13.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES;
+    required_features_13.dynamicRendering = VK_TRUE;
+
+    VkPhysicalDeviceExtendedDynamicStateFeaturesEXT dynamic_rendering_features = {};
+    dynamic_rendering_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTENDED_DYNAMIC_STATE_FEATURES_EXT;
+    dynamic_rendering_features.extendedDynamicState = VK_TRUE;
+
+    VkPhysicalDeviceFeatures2 required_features = {};
+    required_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
+    required_features.pNext = &dynamic_rendering_features;
+
     vkb::PhysicalDeviceSelector phys_device_selector(ctx.instance);
-    auto phys_device_ret = phys_device_selector.set_surface(ctx.surface).select();
+    auto phys_device_ret = phys_device_selector.set_surface(ctx.surface)
+                                .add_required_extension(VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME)
+                                .set_required_features_11(required_features_11)
+                                .set_required_features_13(required_features_13)
+                                // .add_required_extension_features(dynamic_rendering_features)
+                                .select();
     if (!phys_device_ret)
     {
         SDL_LogError(SDL_LOG_CATEGORY_VIDEO, phys_device_ret.error().message().c_str());
@@ -141,7 +162,7 @@ bool InitVulkan(const Vulkan_init_t& init, VulkanContext& ctx)
     graphics_pool_info.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
     graphics_pool_info.queueFamilyIndex = ctx.device.get_queue_index(vkb::QueueType::graphics).value();
 
-    if (ctx.disp.createCommandPool(&graphics_pool_info, nullptr, &ctx.graphics_command_pool) != VK_SUCCESS)\
+    if (ctx.disp.createCommandPool(&graphics_pool_info, nullptr, &ctx.graphics_command_pool) != VK_SUCCESS)
     {
         SDL_LogError(SDL_LOG_CATEGORY_VIDEO, "failed to create command pool");
         return true;

@@ -148,3 +148,8 @@ bool Buffer::copyTo(VulkanContext& ctx, Buffer& src, Buffer& dst)
     vkFreeCommandBuffers(ctx.device.device, ctx.graphics_command_pool, 1, &commandBuffer);
     return false;
 }
+
+void* Buffer::getMappedData() const
+{
+    return m_allocation_info.pMappedData;
+}

@@ -1,5 +1,6 @@
 #include "video/VideoInit.h"
 #include "video/VulkanApp.h"
+#include "video/VulkanVideoApp.h"
 #include "video/TileApp.h"
 
 #include "resource/TileSet.h"
@@ -38,8 +39,8 @@ void dumpTexture(const char* filename, Buffer& buffer, TileSet& tileset)
 }
 
 
-uint32_t SCREEN_WIDTH = 800;
-uint32_t SCREEN_HEIGHT = 600;
+uint32_t SCREEN_WIDTH = 32;
+uint32_t SCREEN_HEIGHT = 32;
 
 int main(int argc, char const *argv[])
 {
@@ -167,6 +168,32 @@ int main(int argc, char const *argv[])
         dumpTexture("gpu_render_3.bmp", buffer_3, tileset_1);
     }
 
+    ctx->disp.queueWaitIdle(ctx->compute_queue);
+
+    {
+        VulkanVideoApp app(ctx);
+        app.init(SCREEN_WIDTH, SCREEN_HEIGHT);
+
+        bool running = true;
+        while (running)
+        {
+            SDL_Event event;
+            while (SDL_PollEvent(&event))
+            {
+
+                if (event.type == SDL_EVENT_WINDOW_RESIZED)
+                {
+                    app.resize();
+                }
+                if (event.type == SDL_EVENT_QUIT)
+                    running = false;
+                if (event.type == SDL_EVENT_KEY_DOWN && event.key.key == SDLK_ESCAPE)
+                    running = false;
+            }
+
+            app.render();
+        }
+    }
     DestroyVulkan(*ctx);
     DestroySDL(sdl_ctx);
 }
