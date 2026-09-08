@@ -7,10 +7,13 @@
 #include "resource/TilePalet.h"
 
 #include <memory>
+#include <iostream>
 using std::shared_ptr;
 
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb_image_write.h"
+
+#include "tile_data.hpp"
 
 void dumpTexture(const char* filename, Buffer& buffer, TileSet& tileset)
 {
@@ -39,8 +42,8 @@ void dumpTexture(const char* filename, Buffer& buffer, TileSet& tileset)
 }
 
 
-uint32_t SCREEN_WIDTH = 32;
-uint32_t SCREEN_HEIGHT = 32;
+uint32_t SCREEN_WIDTH = 640;
+uint32_t SCREEN_HEIGHT = 480;
 
 int main(int argc, char const *argv[])
 {
@@ -170,30 +173,72 @@ int main(int argc, char const *argv[])
 
     ctx->disp.queueWaitIdle(ctx->compute_queue);
 
+
     {
-        VulkanVideoApp app(ctx);
-        app.init(SCREEN_WIDTH, SCREEN_HEIGHT);
-
-        bool running = true;
-        while (running)
+        TilePalet palet {ColorDepth::UINT_32BIT, 16};
+        TileData tile_data;
+        for (size_t i = 0; i < TileData::PALETTE_SIZE; i++)
         {
-            SDL_Event event;
-            while (SDL_PollEvent(&event))
-            {
-
-                if (event.type == SDL_EVENT_WINDOW_RESIZED)
-                {
-                    app.resize();
-                }
-                if (event.type == SDL_EVENT_QUIT)
-                    running = false;
-                if (event.type == SDL_EVENT_KEY_DOWN && event.key.key == SDLK_ESCAPE)
-                    running = false;
-            }
-
-            app.render();
+            TileColor c;
+            c.color = (tile_data.palette[i].a << 24) |
+                        (tile_data.palette[i].b << 16) |
+                        (tile_data.palette[i].g << 8)  |
+                        tile_data.palette[i].r;
+            palet.addColor(c);
         }
+
+        TileSet tileset {tile_data.TILES_X, tile_data.NUM_TILES};
+        for (size_t i = 0; i < tile_data.NUM_TILES; i++)
+        {
+            for (size_t y = 0; y < tile_data.TILE_SIZE; y++)
+            {
+                for (size_t x = 0; x < tile_data.TILE_SIZE; x++)
+                {
+                    std::cout << "Setting tile " << i << " at (" << x << ", " << y << ") to value: " << (int)tile_data.tiles[i][y][x] << std::endl;
+                    tileset.set(i, x, y, tile_data.tiles[i][y][x]);
+                }
+            }
+        }
+        Buffer buffer_0 (BufferType::StagingBuffer, tileset.getHeight() * tileset.getWidth() * tileset.getMaxSize(), sizeof(uint32_t));
+
+        {
+            TileApp app(ctx);
+            app.init();
+            app.addResource(tileset, palet);
+            std::vector<Buffer*> buffers = {&buffer_0};
+            app.run(buffers);
+        }
+
+        std::cout << "Dumping texture to gpu_render_tiles.bmp" << std::endl;
+        std::cout << "Width: " << tileset.getWidth() << ", Height: " << tileset.getHeight() << ", MaxSize: " << tileset.getMaxSize() << std::endl;
+        dumpTexture("gpu_render_tiles.bmp", buffer_0, tileset);
+
+
     }
+    // {
+    //     VulkanVideoApp app(ctx);
+    //     app.init(SCREEN_WIDTH, SCREEN_HEIGHT);
+
+    //     bool running = true;
+    //     while (running)
+    //     {
+    //         SDL_Event event;
+    //         while (SDL_PollEvent(&event))
+    //         {
+
+    //             if (event.type == SDL_EVENT_WINDOW_RESIZED)
+    //             {
+    //                 app.resize();
+    //             }
+    //             if (event.type == SDL_EVENT_QUIT)
+    //                 running = false;
+    //             if (event.type == SDL_EVENT_KEY_DOWN && event.key.key == SDLK_ESCAPE)
+    //                 running = false;
+    //         }
+
+    //         app.render();
+    //     }
+    // }
     DestroyVulkan(*ctx);
     DestroySDL(sdl_ctx);
 }

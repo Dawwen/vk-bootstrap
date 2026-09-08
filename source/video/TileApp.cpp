@@ -322,7 +322,7 @@ bool TileApp::run(std::vector<Buffer*> buffers)
         vkCmdBindPipeline(computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, computePipeline);
         vkCmdBindDescriptorSets(computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, computePipelineLayout, 0, 1, &resource.computeDescriptorSet, 0, 0);
 
-        vkCmdDispatch(computeCommandBuffer, 2, 1, 1);
+        vkCmdDispatch(computeCommandBuffer, resource.tileset.getMaxSize(), 1, 1);
 
         VkBufferMemoryBarrier bufferBarrier{};
         bufferBarrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;

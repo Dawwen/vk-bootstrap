@@ -8,7 +8,7 @@ project(
   VERSION 1.0
   LANGUAGES CXX)
 
-set (CMAKE_GENERATOR "Unix Makefiles" CACHE INTERNAL "" FORCE)
+# set (CMAKE_GENERATOR "Unix Makefiles" CACHE INTERNAL "" FORCE)
 # set (CMAKE_CXX_STANDARD 20)
 
 include_directories(include thirdparty/imgui)
@@ -30,6 +30,7 @@ add_executable(MyExample
                     source/video/VideoInit.cpp
                     source/video/TileApp.cpp
                     source/video/VulkanApp.cpp
+                    source/video/VulkanVideoApp.cpp
                     source/video/Renderer.cpp
                     source/video/VmaUsage.cpp
                     source/video/Buffer.cpp
